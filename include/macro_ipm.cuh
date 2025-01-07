@@ -33,7 +33,7 @@
 
 
 template <typename T>
-class IPM
+class MacroIPM
 {
 
 public:
