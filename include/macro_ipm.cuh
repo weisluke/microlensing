@@ -41,12 +41,12 @@ public:
 	default input variables
 	******************************************************************************/
 	T p11 = static_cast<T>(0.7);
-	T p111 = static_cast<T>(0.0000001);
-	T p112 = static_cast<T>(0.0000003);
-	T p122 = static_cast<T>(-0.0000001);
-	T p222 = static_cast<T>(-0.0000003);
+	T p111 = static_cast<T>(0.1);
+	T p112 = static_cast<T>(0.3);
+	T p122 = static_cast<T>(-0.1);
+	T p222 = static_cast<T>(-0.3);
 	T kappa_star = static_cast<T>(0.03);
-	T theta_star = static_cast<T>(1);
+	T theta_star = static_cast<T>(0.000001);
 	std::string mass_function_str = "equal";
 	T m_solar = static_cast<T>(1);
 	T m_lower = static_cast<T>(0.01);
@@ -57,7 +57,7 @@ public:
 	T safety_scale = static_cast<T>(1.37); //ratio of the size of the star field to the size of the shooting region
 	std::string starfile = "";
 	Complex<T> center_y = Complex<T>();
-	Complex<T> half_length_y = Complex<T>(5, 5);
+	Complex<T> half_length_y = Complex<T>(0.000005, 0.000005);
 	Complex<int> num_pixels_y = Complex<int>(1000, 1000);
 	int num_rays_y = 1; //number density of rays per pixel in the source plane
 	int random_seed = 0;
