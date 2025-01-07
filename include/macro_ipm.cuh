@@ -4,12 +4,13 @@
 #include "binomial_coefficients.cuh"
 #include "complex.cuh"
 #include "fmm.cuh"
-#include "ipm_functions.cuh"
+#include "macro_ipm_functions.cuh"
 #include "mass_functions.cuh"
 #include "mass_functions/equal.cuh"
 #include "mass_functions/kroupa.cuh"
 #include "mass_functions/salpeter.cuh"
 #include "mass_functions/uniform.cuh"
+#include "potential.cuh"
 #include "star.cuh"
 #include "stopwatch.hpp"
 #include "tree_node.cuh"
@@ -39,9 +40,12 @@ public:
 	/******************************************************************************
 	default input variables
 	******************************************************************************/
-	T kappa_tot = static_cast<T>(0.3);
-	T shear = static_cast<T>(0.3);
-	T kappa_star = static_cast<T>(0.27);
+	T p11 = static_cast<T>(0.7);
+	T p111 = static_cast<T>(0.0000001);
+	T p112 = static_cast<T>(0.0000003);
+	T p122 = static_cast<T>(-0.0000001);
+	T p222 = static_cast<T>(-0.0000003);
+	T kappa_star = static_cast<T>(0.03);
 	T theta_star = static_cast<T>(1);
 	std::string mass_function_str = "equal";
 	T m_solar = static_cast<T>(1);
@@ -97,6 +101,8 @@ private:
 	/******************************************************************************
 	derived variables
 	******************************************************************************/
+	potential<T> macro_potential;
+
 	std::shared_ptr<massfunctions::MassFunction<T>> mass_function;
 	T mean_mass;
 	T mean_mass2;
@@ -110,7 +116,6 @@ private:
 	T mean_mass2_actual;
 	T mean_mass2_ln_mass_actual;
 
-	T mu_ave;
 	T num_rays_x; //number density of rays per unit area in the image plane
 	Complex<T> ray_half_sep; //distance from center of cell to corner
 	Complex<T> center_x;
@@ -237,20 +242,9 @@ private:
 		print_verbose("Checking input parameters...\n", verbose, 3);
 
 
-		if (kappa_tot < std::numeric_limits<T>::min())
-		{
-			std::cerr << "Error. kappa_tot must be >= " << std::numeric_limits<T>::min() << "\n";
-			return false;
-		}
-
 		if (kappa_star < std::numeric_limits<T>::min())
 		{
 			std::cerr << "Error. kappa_star must be >= " << std::numeric_limits<T>::min() << "\n";
-			return false;
-		}
-		if (starfile == "" && kappa_star > kappa_tot)
-		{
-			std::cerr << "Error. kappa_star must be <= kappa_tot\n";
 			return false;
 		}
 
@@ -418,10 +412,6 @@ private:
 			set_param("corner", corner, corner, verbose);
 			set_param("theta_star", theta_star, theta_star, verbose);
 			set_param("kappa_star", kappa_star, kappa_star, verbose);
-			if (kappa_star > kappa_tot)
-			{
-				std::cerr << "Warning. kappa_star > kappa_tot\n";
-			}
 			set_param("m_lower", m_lower, m_lower, verbose);
 			set_param("m_upper", m_upper, m_upper, verbose);
 			set_param("mean_mass", mean_mass, mean_mass, verbose);
@@ -432,9 +422,14 @@ private:
 		}
 
 		/******************************************************************************
-		average magnification of the system
+		macro-potential derivatives
 		******************************************************************************/
-		set_param("mu_ave", mu_ave, 1 / ((1 - kappa_tot) * (1 - kappa_tot) - shear * shear), verbose);
+		set_param("p11", macro_potential.p11, p11, verbose);
+		set_param("p22", macro_potential.p22, 1, verbose); //we use a coordinate system where 1 - p22 = 0
+		set_param("p111", macro_potential.p111, p111, verbose);
+		set_param("p112", macro_potential.p112, p112, verbose);
+		set_param("p122", macro_potential.p122, p122, verbose);
+		set_param("p222", macro_potential.p222, p222, verbose);
 
 		/******************************************************************************
 		number density of rays in the lens plane
@@ -453,12 +448,38 @@ private:
 		set_param("ray_half_sep", ray_half_sep, ray_half_sep, verbose);
 
 		/******************************************************************************
-		shooting region is greater than outer boundary for macro-mapping by the size of
-		the region of images visible for a macro-image which on average loses no more
-		than the desired amount of flux
+		check if desired source plane region is in the regime of validity
+		if so, calculate image plane region
 		******************************************************************************/
-		half_length_x = half_length_y + theta_star * std::sqrt(kappa_star * mean_mass2 / (mean_mass * light_loss)) * Complex<T>(1, 1);
-		half_length_x = Complex<T>(half_length_x.re / std::abs(1 - kappa_tot + shear), half_length_x.im / std::abs(1 - kappa_tot - shear));
+		{
+			Complex<T> tmp_half_length_y = half_length_y + theta_star * std::sqrt(kappa_star * mean_mass2 / (mean_mass * light_loss)) * Complex<T>(1, 1);
+			
+			T max_abs_y = std::abs(p222 / (2 * 100);
+			if ((center_y + tmp_half_length_y).abs() >= max_abs_y)
+				|| (center_y - tmp_half_length_y.conj()).abs() >= max_abs_y
+				|| (center_y - tmp_half_length_y).abs() >= max_abs_y
+				|| (center_y + tmp_half_length_y.conj()).abs() >= max_abs_y
+			)
+			{
+				std::cerr << "Error. Corner of the desired source plane region lies outside the regime of validity.\n";
+				return false;
+			}
+			
+			T a0 = 0;
+			T b0 = 0;
+			T a1 = 0;
+			T b1 = std::sqrt(2 * std::max({std::abs((center_y + tmp_half_length_y).im), 
+										   std::abs((center_y - tmp_half_length_y).im)})
+							 / std::abs(p222));
+			T a2 = (2 * std::max({std::abs((center_y + tmp_half_length_y).re), 
+								  std::abs((center_y - tmp_half_length_y.).im)}) 
+					+ p122 * b1 * b1) 
+					/ (2 * (1 - p11));
+			T b2 = -p122 * a2 / p222;
+
+			half_length_x = Complex<T>(std::abs(a0) + std::abs(a1) + 2 * std::abs(a2),
+									   std::abs(b0) + std::abs(b1) + 2 * std::abs(b2));
+		}
 		/******************************************************************************
 		make shooting region a multiple of the ray separation
 		******************************************************************************/
@@ -467,7 +488,7 @@ private:
 		set_param("half_length_x", half_length_x, half_length_x, verbose);
 		set_param("num_ray_threads", num_ray_threads, 2 * num_ray_threads, verbose);
 
-		center_x = Complex<T>(center_y.re / (1 - kappa_tot + shear), center_y.im / (1 - kappa_tot - shear));
+		center_x = Complex<T>();
 		set_param("center_x", center_x, center_x, verbose);
 
 		/******************************************************************************
@@ -927,7 +948,7 @@ private:
 		******************************************************************************/
 		print_verbose("Shooting cells...\n", verbose, 1);
 		stopwatch.start();
-		shoot_cells_kernel<T> <<<blocks, threads>>> (kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+		shoot_cells_kernel<T> <<<blocks, threads>>> (macro_potential, theta_star, stars, kappa_star, tree[0],
 			rectangular, corner, approx, taylor_smooth, ray_half_sep, num_ray_threads, center_x, half_length_x,
 			center_y, half_length_y, pixels_minima, pixels_saddles, pixels, num_pixels_y, percentage, verbose);
 		if (cuda_error("shoot_rays_kernel", true, __FILE__, __LINE__)) return false;
@@ -972,15 +993,14 @@ private:
 			min_mag = std::round(*thrust::min_element(thrust::device, pixels, pixels + num_pixels_y.re * num_pixels_y.im) * factor);
 			max_mag = std::round(*thrust::max_element(thrust::device, pixels, pixels + num_pixels_y.re * num_pixels_y.im) * factor);
 
-			T mu_min_theory = 1 / ((1 - kappa_tot + kappa_star) * (1 - kappa_tot + kappa_star));
+			T mu_min_theory = 1;
 			T mu_min_actual = 1.0 * min_mag / factor;
 
-			if (mu_ave > 1 && mu_min_actual < mu_min_theory)
+			if (mu_min_actual < mu_min_theory)
 			{
 				std::cerr << "Warning. Minimum magnification after shooting cells is less than the theoretical minimum.\n";
 				std::cerr << "   mu_min_actual = " << mu_min_actual << "\n";
-				std::cerr << "   mu_min_theory = 1 / (1 - (kappa_tot - kappa_star))^2\n";
-				std::cerr << "                 = 1 / (1 - (" << kappa_tot << " - " << kappa_star << "))^2 = " << mu_min_theory << "\n";
+				std::cerr << "   mu_min_theory = 1\n";
 				print_verbose("\n", verbose * (!write_parities && verbose < 2), 1);
 			}
 
@@ -991,12 +1011,11 @@ private:
 
 				mu_min_actual = 1.0 * min_mag_minima / factor;
 
-				if (mu_ave > 1 && mu_min_actual < mu_min_theory)
+				if (mu_min_actual < mu_min_theory)
 				{
 					std::cerr << "Warning. Minimum positive parity magnification after shooting cells is less than the theoretical minimum.\n";
 					std::cerr << "   mu_min_actual = " << mu_min_actual << "\n";
-					std::cerr << "   mu_min_theory = 1 / (1 - (kappa_tot - kappa_star))^2\n";
-					std::cerr << "                 = 1 / (1 - (" << kappa_tot << " - " << kappa_star << "))^2 = " << mu_min_theory << "\n";
+					std::cerr << "   mu_min_theory = 1\n";
 					print_verbose("\n", verbose * (verbose < 2), 1);
 				}
 
@@ -1138,10 +1157,11 @@ private:
 			std::cerr << "Error. Failed to open file " << fname << "\n";
 			return false;
 		}
-		outfile << "kappa_tot " << kappa_tot << "\n";
-		outfile << "shear " << shear << "\n";
-		outfile << "mu_ave " << mu_ave << "\n";
-		outfile << "smooth_fraction " << (1 - kappa_star / kappa_tot) << "\n";
+		outfile << "p11 " << p11 << "\n";
+		outfile << "p111 " << p111 << "\n";
+		outfile << "p112 " << p112 << "\n";
+		outfile << "p122 " << p122 << "\n";
+		outfile << "p222 " << p222 << "\n";
 		outfile << "kappa_star " << kappa_star << "\n";
 		if (starfile == "")
 		{
