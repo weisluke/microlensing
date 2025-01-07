@@ -71,7 +71,7 @@ public:
 	/******************************************************************************
 	class initializer is empty
 	******************************************************************************/
-	IPM()
+	MacroIPM()
 	{
 
 	}
@@ -454,8 +454,8 @@ private:
 		{
 			Complex<T> tmp_half_length_y = half_length_y + theta_star * std::sqrt(kappa_star * mean_mass2 / (mean_mass * light_loss)) * Complex<T>(1, 1);
 			
-			T max_abs_y = std::abs(p222 / (2 * 100);
-			if ((center_y + tmp_half_length_y).abs() >= max_abs_y)
+			T max_abs_y = std::abs(p222 / (2 * 100));
+			if ((center_y + tmp_half_length_y).abs() >= max_abs_y
 				|| (center_y - tmp_half_length_y.conj()).abs() >= max_abs_y
 				|| (center_y - tmp_half_length_y).abs() >= max_abs_y
 				|| (center_y + tmp_half_length_y.conj()).abs() >= max_abs_y

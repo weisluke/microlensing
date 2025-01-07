@@ -61,7 +61,7 @@ __device__ Complex<T> d_alpha_macro_d_zbar(Complex<T> z, potential<T> p)
 {
     Complex<T> d_a_macro_d_zbar;
     
-    d_a_macro_d_zbar += Complex<T>(p.p11 - p.p22, 2 * p.p12) / 2
+    d_a_macro_d_zbar += Complex<T>(p.p11 - p.p22, 2 * p.p12) / 2;
 	d_a_macro_d_zbar += (Complex<T>(p.p111 + p.p122, p.p112 + p.p222) * z
                          + Complex<T>(p.p111 - 3 * p.p122, 3 * p.p112 - p.p222) * z.conj()
                         ) / 4;
