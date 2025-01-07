@@ -574,13 +574,6 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	if (!(cmd_option_exists(argv, argv + argc, "-sf") || cmd_option_exists(argv, argv + argc, "--starfile")) &&
-		!(cmd_option_exists(argv, argv + argc, "-ks") || cmd_option_exists(argv, argv + argc, "--kappa_star")) &&
-		(cmd_option_exists(argv, argv + argc, "-s") || cmd_option_exists(argv, argv + argc, "--smooth_fraction")))
-	{
-		set_param("kappa_star", map_maker.kappa_star, (1 - smooth_fraction) * map_maker.kappa_tot, verbose);
-	}
-
 	print_verbose("\n", verbose, 2);
 
 	/******************************************************************************

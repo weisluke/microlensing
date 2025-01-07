@@ -472,7 +472,7 @@ private:
 										   std::abs((center_y - tmp_half_length_y).im)})
 							 / std::abs(p222));
 			T a2 = (2 * std::max({std::abs((center_y + tmp_half_length_y).re), 
-								  std::abs((center_y - tmp_half_length_y.).im)}) 
+								  std::abs((center_y - tmp_half_length_y).im)}) 
 					+ p122 * b1 * b1) 
 					/ (2 * (1 - p11));
 			T b2 = -p122 * a2 / p222;
