@@ -391,27 +391,39 @@ __global__ void find_critical_curve_roots_kernel(T kappa, T gamma, T theta, star
 	int z_index = blockIdx.z * blockDim.z + threadIdx.z;
 	int z_stride = blockDim.z * gridDim.z;
 
+	T phi0;
+	int center;
+	int sgn;
 	Complex<T> result;
 	T norm;
-	int sgn;
 
-	T dphi = 2 * std::numbers::pi_v<T> / nphi * j;
+	T dphi = 2 * std::numbers::pi_v<T> / nphi;
 
 	for (int c = z_index; c < nbranches; c += z_stride)
 	{
+		/******************************************************************************
+		the central value of phi for the branch is pi / nbranches, 
+		plus 2pi / nbranches times the branch number
+		******************************************************************************/
+		phi0 = std::numbers::pi_v<T> / nbranches + c * 2 * std::numbers::pi_v<T> / nbranches;
+		/******************************************************************************
+		similar to the above, the center of the roots array (ie the index of phi0) for
+		every branch is (nphi / (2 * nbranches) + c * nphi / nbranches + c) * nroots
+		the extra addition of c is there as each branch includes the range endpoints
+		******************************************************************************/
+		center = (nphi / (2 * nbranches) + c * nphi / nbranches + c) * nroots;
+
 		for (int b = y_index; b < 2; b += y_stride)
 		{
-			T phi0 = std::numbers::pi_v<T> / nbranches + c * 2 * std::numbers::pi_v<T> / nbranches;
+			/******************************************************************************
+			we use the following variable to determine whether we are on the positive or
+			negative side of phi0, as we are simultaneously growing 2 sets of roots after
+			having stepped away from the middle by j out of nphi steps
+			******************************************************************************/
+			sgn = (b == 0 ? -1 : 1);
 
 			for (int a = x_index; a < nroots; a += x_stride)
 			{
-				/******************************************************************************
-				we use the following variable to determine whether we are on the positive or
-				negative side of phi0, as we are simultaneously growing 2 sets of roots after
-				having stepped away from the middle by j out of nphi steps
-				******************************************************************************/
-				sgn = (b == 0 ? -1 : 1);
-
 				/******************************************************************************
 				if root has not already been calculated to desired precision
 				we are calculating nbranches * 2 * nroots roots in parallel, so
@@ -422,16 +434,12 @@ __global__ void find_critical_curve_roots_kernel(T kappa, T gamma, T theta, star
 				if (!fin[c * 2 * nroots + b * nroots + a])
 				{
 					/******************************************************************************
-					calculate new root
-					center of the roots array (ie the index of phi0) for all branches is
-					( nphi / (2 * nbranches) + c  * nphi / nbranches + c) * nroots
-					for the particular value of phi here (i.e., phi0 +/- dphi), roots start
-					at +/- j*nroots of that center
+					for the particular value of phi here (i.e., phi0 +/- dphi * j), roots start
+					at +/- j * nroots of center
 					a is then added to get the final index of this particular root
 					******************************************************************************/
-
-					int center = (nphi / (2 * nbranches) + c * nphi / nbranches + c) * nroots;
-					result = find_critical_curve_root(a, roots[center + sgn * j * nroots + a], kappa, gamma, theta, stars, kappastar, root, rectangular, corner, approx, taylor_smooth, phi0 + sgn * dphi, &(roots[center + sgn * j * nroots]), nroots);
+					result = find_critical_curve_root(a, roots[center + sgn * j * nroots + a], kappa, gamma, theta, stars, kappastar, root, 
+						rectangular, corner, approx, taylor_smooth, phi0 + sgn * dphi * j, &(roots[center + sgn * j * nroots]), nroots);
 
 					/******************************************************************************
 					distance between old root and new root in units of theta_star
@@ -489,29 +497,44 @@ __global__ void find_errors_kernel(Complex<T>* z, int nroots, T kappa, T gamma, 
 	int z_index = blockIdx.z * blockDim.z + threadIdx.z;
 	int z_stride = blockDim.z * gridDim.z;
 
+	T phi0;
+	int center;
 	int sgn;
 
-	T dphi = 2 * std::numbers::pi_v<T> / nphi * j;
+	T dphi = 2 * std::numbers::pi_v<T> / nphi;
 
 	for (int c = z_index; c < nbranches; c += z_stride)
 	{
+		/******************************************************************************
+		the central value of phi for the branch is pi / nbranches, 
+		plus 2pi / nbranches times the branch number
+		******************************************************************************/
+		phi0 = std::numbers::pi_v<T> / nbranches + c * 2 * std::numbers::pi_v<T> / nbranches;
+		/******************************************************************************
+		similar to the above, the center of the roots array (ie the index of phi0) for
+		every branch is (nphi / (2 * nbranches) + c * nphi / nbranches + c) * nroots
+		the extra addition of c is there as each branch includes the range endpoints
+		******************************************************************************/
+		center = (nphi / (2 * nbranches) + c * nphi / nbranches + c) * nroots;
+
 		for (int b = y_index; b < 2; b += y_stride)
 		{
-			T phi0 = std::numbers::pi_v<T> / nbranches + c * 2 * std::numbers::pi_v<T> / nbranches;
+			/******************************************************************************
+			we use the following variable to determine whether we are on the positive or
+			negative side of phi0, as we are simultaneously growing 2 sets of roots after
+			having stepped away from the middle by j out of nphi steps
+			******************************************************************************/
+			sgn = (b == 0 ? -1 : 1);
 
 			for (int a = x_index; a < nroots; a += x_stride)
 			{
-				sgn = (b == 0 ? -1 : 1);
-
-				int center = (nphi / (2 * nbranches) + c * nphi / nbranches + c) * nroots;
-
 				TreeNode<T>* node = treenode::get_nearest_node(z[center + sgn * j * nroots + a], root);
 
 				/******************************************************************************
 				the value of 1/mu depends on the value of f0
 				this calculation ensures that the maximum possible value of 1/mu is given
 				******************************************************************************/
-				Complex<T> f0 = parametric_critical_curve(z[center + sgn * j * nroots + a], kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth, phi0 + sgn * dphi);
+				Complex<T> f0 = parametric_critical_curve(z[center + sgn * j * nroots + a], kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth, phi0 + sgn * dphi * j);
 				T d_a_smooth_d_z = d_alpha_smooth_d_z(z[center + sgn * j * nroots + a], kappastar, rectangular, corner, approx);
 
 				T e1 = fabs(f0.abs() * (f0.abs() + 2 * (1 - kappa - d_a_smooth_d_z)));
