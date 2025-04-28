@@ -121,6 +121,32 @@ __device__ Complex<T> d_parametric_critical_curve_dz(Complex<T> z, T kappa, T ga
 }
 
 /******************************************************************************
+derivative of the parametric critical curve equation with respect to phi
+
+\param z -- complex image plane position
+\param kappa -- total convergence
+\param kappastar -- convergence in point mass lenses
+\param rectangular -- whether the star field is rectangular or not
+\param corner -- complex number denoting the corner of the rectangular field of
+				 point mass lenses
+\param approx -- whether the smooth matter deflection is approximate or not
+\param phi -- value of the variable parametrizing z
+
+\return (1 - kappa - d_alpha_smooth / d_z) * i * e^(-i * phi)
+******************************************************************************/
+template <typename T>
+__device__ Complex<T> d_parametric_critical_curve_dphi(Complex<T> z, T kappa, T kappastar,
+	int rectangular, Complex<T> corner, int approx, T phi)
+{
+	T d_a_smooth_d_z = d_alpha_smooth_d_z(z, kappastar, rectangular, corner, approx);
+
+	/******************************************************************************
+	(1 - kappa - d_alpha_smooth / d_z) * i * e^(-i * phi)
+	******************************************************************************/
+	return Complex<T>(0, 1 - kappa - d_a_smooth_d_z) * Complex<T>(0, -phi).exp();
+}
+
+/******************************************************************************
 magnification length scale for a given location on the critical curve
 
 \param z -- complex image plane position
