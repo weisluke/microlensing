@@ -1040,7 +1040,8 @@ private:
 			set critical curve array elements to be equal to last roots
 			fin array is reused each time
 			******************************************************************************/
-			prepare_roots_kernel<T> <<<blocks, threads>>> (ccs_init, num_roots, j, num_phi, num_branches, fin);
+			prepare_roots_kernel<T> <<<blocks, threads>>> (kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+				rectangular, corner, approx, taylor_smooth, ccs_init, num_roots, j, num_phi, num_branches, fin);
 			if (cuda_error("prepare_roots_kernel", false, __FILE__, __LINE__)) return false;
 
 			/******************************************************************************

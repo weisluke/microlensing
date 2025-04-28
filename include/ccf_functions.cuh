@@ -269,14 +269,24 @@ __device__ Complex<T> find_critical_curve_root(int k, Complex<T> z, T kappa, T g
 }
 
 /******************************************************************************
-take the list of all roots z, the given value of j out of nphi steps, and the
-number of branches, and set the initial roots for step j equal to the final
-roots of step j-1
+prepare initial roots for step j based on the roots at step j-1
 reset values for whether roots have all been found to sufficient accuracy to
 false
 
-\param z -- pointer to array of root positions
-\param nroots -- number of roots
+\param kappa -- total convergence
+\param gamma -- external shear
+\param theta -- size of the Einstein radius of a unit mass point lens
+\param stars -- pointer to array of point mass lenses
+\param kappastar -- convergence in point mass lenses
+\param root -- pointer to root node
+\param rectangular -- whether the star field is rectangular or not
+\param corner -- complex number denoting the corner of the rectangular field of
+				 point mass lenses
+\param approx -- whether the smooth matter deflection is approximate or not
+\param taylor_smooth -- degree of the taylor series for alpha_smooth if 
+                        approximate
+\param roots -- pointer to array of roots
+\param nroots -- number of roots in array
 \param j -- position in the number of steps used for phi
 \param nphi -- total number of steps used for phi in [0, 2*pi]
 \param nbranches -- total number of branches for phi in [0, 2*pi]
@@ -285,7 +295,8 @@ false
 			  array is of size nbranches * 2 * nroots
 ******************************************************************************/
 template <typename T>
-__global__ void prepare_roots_kernel(Complex<T>* z, int nroots, int j, int nphi, int nbranches, bool* fin)
+__global__ void prepare_roots_kernel(T kappa, T gamma, T theta, star<T>* stars, T kappastar, TreeNode<T>* root,
+	int rectangular, Complex<T> corner, int approx, int taylor_smooth, Complex<T>* roots, int nroots, int j, int nphi, int nbranches, bool* fin)
 {
 	int x_index = blockIdx.x * blockDim.x + threadIdx.x;
 	int x_stride = blockDim.x * gridDim.x;
@@ -296,25 +307,48 @@ __global__ void prepare_roots_kernel(Complex<T>* z, int nroots, int j, int nphi,
 	int z_index = blockIdx.z * blockDim.z + threadIdx.z;
 	int z_stride = blockDim.z * gridDim.z;
 
+	T phi0;
+	int center;
+	int sgn;
+	Complex<T> z;
+	T phi;
+
+	T dphi = 2 * std::numbers::pi_v<T> / nphi;
+
 	for (int c = z_index; c < nbranches; c += z_stride)
 	{
+		/******************************************************************************
+		the central value of phi for the branch is pi / nbranches, 
+		plus 2pi / nbranches times the branch number
+		******************************************************************************/
+		phi0 = std::numbers::pi_v<T> / nbranches + c * 2 * std::numbers::pi_v<T> / nbranches;
+		/******************************************************************************
+		similar to the above, the center of the roots array (ie the index of phi0) for
+		every branch is (nphi / (2 * nbranches) + c * nphi / nbranches + c) * nroots
+		the extra addition of c is there as each branch includes the range endpoints
+		******************************************************************************/
+		center = (nphi / (2 * nbranches) + c * nphi / nbranches + c) * nroots;
+
 		for (int b = y_index; b < 2; b += y_stride)
 		{
+			/******************************************************************************
+			we use the following variable to determine whether we are on the positive or
+			negative side of phi0, as we are simultaneously growing 2 sets of roots after
+			having stepped away from the middle by j out of nphi steps
+			******************************************************************************/
+			sgn = (b == 0 ? -1 : 1);
+			
 			for (int a = x_index; a < nroots; a += x_stride)
 			{
-				int center = (nphi / (2 * nbranches) + c * nphi / nbranches + c) * nroots;
+				z = roots[center + sgn * (j - 1) * nroots + a];
+				phi = phi0 + sgn * dphi * (j - 1);
+				TreeNode<T>* node = treenode::get_nearest_node(z, root);
+				Complex<T> d_F_d_z = d_parametric_critical_curve_dz(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
+				Complex<T> d_F_d_phi = d_parametric_critical_curve_dphi(z, kappa, kappastar, rectangular, corner, approx, phi);
+				Complex<T> dz = -d_F_d_phi * dphi / d_F_d_z;
 
-				if (b == 0)
-				{
-
-					z[center + j * nroots + a] = z[center + (j - 1) * nroots + a];
-					fin[c * 2 * nroots + a] = false;
-				}
-				else
-				{
-					z[center - j * nroots + a] = z[center - (j - 1) * nroots + a];
-					fin[c * 2 * nroots + a + nroots] = false;
-				}
+				roots[center + sgn * j * nroots + a] = z + dz;
+				fin[c * 2 * nroots + b * nroots + a] = false;
 			}
 		}
 	}
