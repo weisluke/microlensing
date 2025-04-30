@@ -407,10 +407,11 @@ find new critical curve roots for a star field
 \param fin -- pointer to array of boolean values for whether roots have been
 			  found to sufficient accuracy
 			  array is of size nbranches * 2 * nroots
+\param p -- number of roots that have been found
 ******************************************************************************/
 template <typename T>
 __global__ void find_critical_curve_roots_kernel(T kappa, T gamma, T theta, star<T>* stars, T kappastar, TreeNode<T>* root,
-	int rectangular, Complex<T> corner, int approx, int taylor_smooth, Complex<T>* roots, int nroots, int j, int nphi, int nbranches, bool* fin)
+	int rectangular, Complex<T> corner, int approx, int taylor_smooth, Complex<T>* roots, int nroots, int j, int nphi, int nbranches, bool* fin, int* p)
 {
 	int x_index = blockIdx.x * blockDim.x + threadIdx.x;
 	int x_stride = blockDim.x * gridDim.x;
@@ -483,6 +484,7 @@ __global__ void find_critical_curve_roots_kernel(T kappa, T gamma, T theta, star
 					if (norm < static_cast<T>(0.000000001))
 					{
 						fin[c * 2 * nroots + b * nroots + a] = true;
+						atomicAdd(p, 1);
 					}
 					roots[center + sgn * j * nroots + a] = result;
 				}

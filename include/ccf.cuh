@@ -950,6 +950,11 @@ private:
 		set_threads(threads, 256);
 		set_blocks(threads, blocks, num_roots, 2, num_branches);
 
+		int* p;
+		cudaMallocManaged(&p, sizeof(int));
+		if (cuda_error("cudaMallocManaged(*p)", false, __FILE__, __LINE__)) return false;
+		*p = 0;
+
 		/******************************************************************************
 		begin finding initial roots and calculate time taken in seconds
 		******************************************************************************/
@@ -964,14 +969,18 @@ private:
 		******************************************************************************/
 		for (int i = 0; i < num_iters; i++)
 		{
+			find_critical_curve_roots_kernel<T> <<<blocks, threads>>> (kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+				rectangular, corner, approx, taylor_smooth, ccs_init, num_roots, 0, num_phi, num_branches, fin, p);
+			if (cuda_error("find_critical_curve_roots_kernel", true, __FILE__, __LINE__)) return false;
+		
 			/******************************************************************************
 			display percentage done
 			******************************************************************************/
-			print_progress(verbose, i, num_iters - 1);
-
-			find_critical_curve_roots_kernel<T> <<<blocks, threads>>> (kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
-				rectangular, corner, approx, taylor_smooth, ccs_init, num_roots, 0, num_phi, num_branches, fin);
-			if (cuda_error("find_critical_curve_roots_kernel", true, __FILE__, __LINE__)) return false;
+			print_progress(verbose, *p, num_branches * 2 * num_roots);
+			if (*p == num_branches * 2 * num_roots)
+			{
+				break;
+			}
 		}
 		t_init_roots = stopwatch.stop();
 		print_verbose("\nDone finding initial roots. Elapsed time: " << t_init_roots << " seconds.\n", verbose, 1);
@@ -1023,6 +1032,11 @@ private:
 		set_threads(threads, 256);
 		set_blocks(threads, blocks, num_roots, 2, num_branches);
 
+		int* p;
+		cudaMallocManaged(&p, sizeof(int));
+		if (cuda_error("cudaMallocManaged(*p)", false, __FILE__, __LINE__)) return false;
+		*p = 0;
+
 		/******************************************************************************
 		begin finding critical curves and calculate time taken in seconds
 		******************************************************************************/
@@ -1044,29 +1058,22 @@ private:
 				rectangular, corner, approx, taylor_smooth, ccs_init, num_roots, j, num_phi, num_branches, fin);
 			if (cuda_error("prepare_roots_kernel", false, __FILE__, __LINE__)) return false;
 
+			*p = 0;
+
 			/******************************************************************************
 			calculate roots for current values of j
 			******************************************************************************/
 			for (int i = 0; i < num_iters; i++)
 			{
 				find_critical_curve_roots_kernel<T> <<<blocks, threads>>> (kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
-					rectangular, corner, approx, taylor_smooth, ccs_init, num_roots, j, num_phi, num_branches, fin);
-				if (cuda_error("find_critical_curve_roots_kernel", false, __FILE__, __LINE__)) return false;
+					rectangular, corner, approx, taylor_smooth, ccs_init, num_roots, j, num_phi, num_branches, fin, p);
+				if (cuda_error("find_critical_curve_roots_kernel", true, __FILE__, __LINE__)) return false;
+				if (*p == num_branches * 2 * num_roots)
+				{
+					break;
+				}
 			}
-			/******************************************************************************
-			only perform synchronization call after roots have all been found
-			this allows the print_progress call in the outer loop to accurately display the
-			amount of work done so far
-			one could move the synchronization call outside of the outer loop for a slight
-			speed-up, at the cost of not knowing how far along in the process the
-			computations have gone
-			******************************************************************************/
-			if (j * 100 / (num_phi / (2 * num_branches)) > (j - 1) * 100 / (num_phi / (2 * num_branches)))
-			{
-				cudaDeviceSynchronize();
-				if (cuda_error("cudaDeviceSynchronize", false, __FILE__, __LINE__)) return false;
-				print_progress(verbose, j, num_phi / (2 * num_branches));
-			}
+			print_progress(verbose, num_branches * 2 * num_roots * j, num_roots * num_phi);
 		}
 		t_ccs = stopwatch.stop();
 		print_verbose("\nDone finding critical curve positions. Elapsed time: " << t_ccs << " seconds.\n", verbose, 1);
