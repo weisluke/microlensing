@@ -269,6 +269,40 @@ __device__ Complex<T> find_critical_curve_root(int k, Complex<T> z, T kappa, T g
 }
 
 /******************************************************************************
+calculate the new initial root at phi + dphi based on the current position z
+
+\param z -- complex image plane position
+\param kappa -- total convergence
+\param gamma -- external shear
+\param theta -- size of the Einstein radius of a unit mass point lens
+\param stars -- pointer to array of point mass lenses
+\param kappastar -- convergence in point mass lenses
+\param root -- pointer to root node
+\param rectangular -- whether the star field is rectangular or not
+\param corner -- complex number denoting the corner of the rectangular field of
+				 point mass lenses
+\param approx -- whether the smooth matter deflection is approximate or not
+\param taylor_smooth -- degree of the taylor series for alpha_smooth if 
+                        approximate
+\param phi -- value of the variable parametrizing z
+\param dphi -- step in the value of the variable parametrizing z
+
+\return z + dz, such that F(z + dz, phi + dphi) = 0 given that F(z, phi) = 0
+        based on F(z + dz, phi + dphi) ~ dF / dz * dz + dF / dphi * dphi
+******************************************************************************/
+template <typename T>
+__device__ Complex<T> new_initial_root(Complex<T> z, T kappa, T gamma, T theta, star<T>* stars, T kappastar, TreeNode<T>* root, 
+	int rectangular, Complex<T> corner, int approx, int taylor_smooth, T phi, T dphi)
+{
+	TreeNode<T>* node = treenode::get_nearest_node(z, root);
+	Complex<T> d_F_d_z = d_parametric_critical_curve_dz(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
+	Complex<T> d_F_d_phi = d_parametric_critical_curve_dphi(z, kappa, kappastar, rectangular, corner, approx, phi);
+	Complex<T> dz = -d_F_d_phi * dphi / d_F_d_z;
+
+	return z;
+}
+
+/******************************************************************************
 prepare initial roots for step j based on the roots at step j-1
 reset values for whether roots have all been found to sufficient accuracy to
 false
@@ -342,12 +376,8 @@ __global__ void prepare_roots_kernel(T kappa, T gamma, T theta, star<T>* stars, 
 			{
 				z = roots[center + sgn * (j - 1) * nroots + a];
 				phi = phi0 + sgn * dphi * (j - 1);
-				TreeNode<T>* node = treenode::get_nearest_node(z, root);
-				Complex<T> d_F_d_z = d_parametric_critical_curve_dz(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
-				Complex<T> d_F_d_phi = d_parametric_critical_curve_dphi(z, kappa, kappastar, rectangular, corner, approx, phi);
-				Complex<T> dz = -d_F_d_phi * dphi / d_F_d_z;
 
-				roots[center + sgn * j * nroots + a] = z + dz;
+				roots[center + sgn * j * nroots + a] = new_initial_root(z, kappa, gamma, theta, stars, kappastar, root, rectangular, corner, approx, taylor_smooth, phi, dphi);
 				fin[c * 2 * nroots + b * nroots + a] = false;
 			}
 		}
