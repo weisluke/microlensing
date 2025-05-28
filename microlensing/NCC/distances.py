@@ -1,5 +1,9 @@
-import numpy as np
-from scipy.ndimage import distance_transform_edt, rotate
+try:
+    import cupy as np
+    from cupyx.scipy.ndimage import distance_transform_edt, rotate
+except ImportError:
+    import numpy as np
+    from scipy.ndimage import distance_transform_edt, rotate
 
 from .ncc import NCC
 
@@ -14,16 +18,31 @@ def expanding_source(ncc: NCC):
     # pixels must be square for distance calculations
     assert ncc.pixel_scales[0] == ncc.pixel_scales[1]
 
-    d_caustic = np.zeros(ncc.num_caustic_crossings.shape)
+    if not isinstance(ncc.num_caustic_crossings, np.ndarray):
+        vals = np.array(ncc.num_caustic_crossings)
+    else:
+        vals = ncc.num_caustic_crossings
 
-    for i in range(np.min(ncc.num_caustic_crossings), 
-                   np.max(ncc.num_caustic_crossings) + 1):
-        mask = (ncc.num_caustic_crossings==i)
-        distances = distance_transform_edt(mask)
-        d_caustic[mask] = distances[mask]
+    d_caustic = np.zeros(vals.shape)
+
+    try:
+        for i in range(np.min(vals).get(), 
+                       np.max(vals).get() + 1):
+            mask = (vals==i)
+            distances = distance_transform_edt(mask)
+            d_caustic[mask] = distances[mask]
+    except AttributeError:
+        for i in range(np.min(vals), 
+                       np.max(vals) + 1):
+            mask = (vals==i)
+            distances = distance_transform_edt(mask)
+            d_caustic[mask] = distances[mask]
     d_caustic = d_caustic * ncc.pixel_scales[0]
 
-    return d_caustic
+    try:
+        return d_caustic.get()
+    except AttributeError:
+        return d_caustic
 
 def moving_source(ncc: NCC, angle: float = 90):
     '''
@@ -45,8 +64,8 @@ def moving_source(ncc: NCC, angle: float = 90):
         [1,2,2,1,1,2,2,2] returns [0.5, 0.5, 1.5, 0.5, 1.5, 0.5, 1.5, 2.5]
         '''
         distances = np.ones(a.shape, dtype=int)
-        mask = (a[:, 1:] != a[:, :-1])
-        mask = np.insert(mask, 0, True, axis=1)
+        mask = np.ones(a.shape)
+        mask[:,1:] = (a[:, 1:] != a[:, :-1])
         for i, _ in enumerate(a):
             idx = np.flatnonzero(mask[i])
             if idx.size > 0:
@@ -54,10 +73,15 @@ def moving_source(ncc: NCC, angle: float = 90):
 
         return distances.cumsum(1) - 0.5
 
+    if not isinstance(ncc.num_caustic_crossings, np.ndarray):
+        vals = np.array(ncc.num_caustic_crossings)
+    else:
+        vals = ncc.num_caustic_crossings
+
     # add 180 to angle since we calculate distances left along a row, 
     # but an angle of 0 is to the right
     # negate the angle, as array is rotated opposite relative to direction of travel
-    d_caustic = closest_distance_per_row(rotate(ncc.num_caustic_crossings, 
+    d_caustic = closest_distance_per_row(rotate(vals, 
                                                 -(angle + 180), reshape=True, order=0))
     d_caustic = rotate(d_caustic, angle + 180, reshape=True, order=0)
     d_caustic = d_caustic * ncc.pixel_scales[0] # scale pixel distances to physical
@@ -68,4 +92,7 @@ def moving_source(ncc: NCC, angle: float = 90):
     d_caustic = d_caustic[dy2:dy2 + ncc.num_pixels_y2,
                           dy1:dy1 + ncc.num_pixels_y1]
 
-    return d_caustic
+    try:
+        return d_caustic.get()
+    except AttributeError:
+        return d_caustic
