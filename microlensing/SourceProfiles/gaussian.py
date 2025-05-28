@@ -1,4 +1,7 @@
-import numpy as np
+try:
+    import cupy as np
+except ImportError:
+    import numpy as np
 
 
 class Gaussian():
@@ -51,13 +54,13 @@ class Gaussians():
         :param radius: minimum radius of the 2D profiles in pixels
         :param step: step size for the radius in pixels
         '''
-        self.radii, y, x = np.ogrid[min_radius: max_radius + 1: step,
-                                    -max_radius: max_radius + 1,
-                                    -max_radius: max_radius + 1]
-        mask = x**2 + y**2 <= self.radii**2
+        self._radii, y, x = np.ogrid[min_radius: max_radius + 1: step,
+                                     -max_radius: max_radius + 1,
+                                     -max_radius: max_radius + 1]
+        mask = x**2 + y**2 <= self._radii**2
 
         # for a 2D Gaussian, 0.999 of the PDF lies within r = 3.7169222 * sigma
-        self.sigma = self.radii / 3.7169222
+        self.sigma = self._radii / 3.7169222
 
         self.sigma[self.sigma == 0] = 1  # to avoid division by zero below
         kernel = np.exp(-(x**2 + y**2)/(2 * self.sigma**2))
@@ -65,8 +68,15 @@ class Gaussians():
 
         self.profiles = kernel
         self.weights = np.sum(kernel, axis=(1,2))
-        self.radii = self.radii.flatten()
+        self._radii = self._radii.flatten()
         self.sigma = self.sigma.flatten()
+
+    @property
+    def radii(self):
+        try:
+            return self._radii.get()
+        except AttributeError:
+            return self._radii
 
     @property
     def half_light_radii(self):

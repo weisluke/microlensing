@@ -1,4 +1,7 @@
-import numpy as np
+try:
+    import cupy as np
+except ImportError:
+    import numpy as np
 
 
 class UniformDisk():
@@ -46,15 +49,22 @@ class UniformDisks():
                            2 * max_radius + 1, 2 * max_radius + 1),
                           dtype=np.int8)
 
-        self.radii, y, x = np.ogrid[min_radius: max_radius + 1: step,
-                                    -max_radius: max_radius + 1,
-                                    -max_radius: max_radius + 1]
-        mask = x**2 + y**2 <= self.radii**2
+        self._radii, y, x = np.ogrid[min_radius: max_radius + 1: step,
+                                     -max_radius: max_radius + 1,
+                                     -max_radius: max_radius + 1]
+        mask = x**2 + y**2 <= self._radii**2
         kernel[mask] = 1
 
         self.profiles = kernel
         self.weights = np.sum(kernel, axis=(1,2))
-        self.radii = self.radii.flatten()
+        self._radii = self._radii.flatten()
+
+    @property
+    def radii(self):
+        try:
+            return self._radii.get()
+        except AttributeError:
+            return self._radii
 
     @property
     def half_light_radii(self):
