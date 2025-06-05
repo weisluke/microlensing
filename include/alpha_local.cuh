@@ -16,7 +16,7 @@ calculate the deflection angle within a node due to far away stars
            node size
 ******************************************************************************/
 template <typename T>
-__device__ Complex<T> alpha_local(Complex<T> z, T theta, TreeNode<T>* node)
+__host__ __device__ Complex<T> alpha_local(Complex<T> z, T theta, TreeNode<T>* node)
 {
 	Complex<T> a_local_bar;
 	Complex<T> dz = (z - node->center) / node->half_length;
@@ -49,7 +49,7 @@ node due to far away stars
 		   node size
 ******************************************************************************/
 template <typename T>
-__device__ Complex<T> d_alpha_local_d_zbar(Complex<T> z, T theta, TreeNode<T>* node)
+__host__ __device__ Complex<T> d_alpha_local_d_zbar(Complex<T> z, T theta, TreeNode<T>* node)
 {
 	Complex<T> d_a_local_bar_dz;
 	Complex<T> dz = (z - node->center) / node->half_length;
@@ -82,7 +82,7 @@ within a node due to far away stars
 		   node size
 ******************************************************************************/
 template <typename T>
-__device__ Complex<T> d2_alpha_local_d_zbar2(Complex<T> z, T theta, TreeNode<T>* node)
+__host__ __device__ Complex<T> d2_alpha_local_d_zbar2(Complex<T> z, T theta, TreeNode<T>* node)
 {
 	Complex<T> d2_a_local_bar_dz2;
 	Complex<T> dz = (z - node->center) / node->half_length;
