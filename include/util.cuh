@@ -119,10 +119,13 @@ examples: [====    ] 50 %       [=====  ] 73 %
 \param num_bars -- number of = symbols inside the bar
 				   default value: 50
 ******************************************************************************/
-void print_progress(int verbose, unsigned long long int icurr, unsigned long long int imax, int num_bars = 50)
+__host__ __device__ void print_progress(int verbose, unsigned long long int icurr, unsigned long long int imax, int num_bars = 50)
 {
 	if (verbose < 1) {return;}
 
+#ifdef __CUDA_ARCH__
+	printf("\r%llu %%", icurr * 100 / imax);
+#else
 	std::cout << "\r[";
 	for (int i = 0; i < num_bars; i++)
 	{
@@ -136,11 +139,7 @@ void print_progress(int verbose, unsigned long long int icurr, unsigned long lon
 		}
 	}
 	std::cout << "] " << icurr * 100 / imax << " %" << std::flush;
-}
-__device__ void device_print_progress(int verbose, unsigned long long int icurr, unsigned long long int imax)
-{
-	if (verbose < 1) {return;}
-	printf("\r%llu %%", icurr * 100 / imax);
+#endif
 }
 
 /******************************************************************************

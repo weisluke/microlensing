@@ -223,7 +223,7 @@ __global__ void find_num_caustic_crossings_kernel(Complex<T>* caustics, int nrow
 					imax *= (((ncols - 1) - 1) / blockDim.y + 1);
 					if (p * 100 / imax > (p - 1) * 100 / imax)
 					{
-						device_print_progress(verbose, p, imax);
+						print_progress(verbose, p, imax);
 					}
 				}
 				continue;
@@ -335,7 +335,7 @@ __global__ void find_num_caustic_crossings_kernel(Complex<T>* caustics, int nrow
 				imax *= (((ncols - 1) - 1) / blockDim.y + 1);
 				if (p * 100 / imax > (p - 1) * 100 / imax)
 				{
-					device_print_progress(verbose, p, imax);
+					print_progress(verbose, p, imax);
 				}
 			}
 		}

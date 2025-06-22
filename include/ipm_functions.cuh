@@ -75,7 +75,7 @@ __global__ void shoot_cells_kernel(T kappa, T gamma, T theta, star<T>* stars, T 
 						imax *= ((num_ray_threads.im - 1) / blockDim.y + 1);
 						if (p * 100 / imax > (p - 1) * 100 / imax)
 						{
-							device_print_progress(verbose, p, imax);
+							print_progress(verbose, p, imax);
 						}
 					}
 					break;
@@ -150,7 +150,7 @@ __global__ void shoot_cells_kernel(T kappa, T gamma, T theta, star<T>* stars, T 
 				imax *= ((num_ray_threads.im - 1) / blockDim.y + 1);
 				if (p * 100 / imax > (p - 1) * 100 / imax)
 				{
-					device_print_progress(verbose, p, imax);
+					print_progress(verbose, p, imax);
 				}
 			}
 		}
