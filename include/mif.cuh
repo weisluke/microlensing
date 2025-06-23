@@ -4,7 +4,7 @@
 #include "binomial_coefficients.cuh"
 #include "complex.cuh"
 #include "fmm.cuh"
-#include "ipm_functions.cuh"
+#include "mif_functions.cuh"
 #include "mass_functions.cuh"
 #include "mass_functions/equal.cuh"
 #include "mass_functions/kroupa.cuh"
@@ -35,7 +35,7 @@
 
 
 template <typename T>
-class IPM
+class MIF
 {
 
 public:
@@ -1368,7 +1368,7 @@ public:
 	/******************************************************************************
 	class initializer is empty
 	******************************************************************************/
-	IPM()
+	MIF()
 	{
 
 	}
@@ -1376,7 +1376,7 @@ public:
 	/******************************************************************************
 	class destructor clears memory with no output or error checking
 	******************************************************************************/
-	~IPM()
+	~MIF()
 	{
 		clear_memory(0, false);
 	}
@@ -1384,7 +1384,7 @@ public:
 	/******************************************************************************
 	copy constructor sets this object's dynamic memory pointers to null
 	******************************************************************************/
-	IPM(const IPM& other)
+	MIF(const MIF& other)
 	{
 		states = nullptr;
 		stars = nullptr;
@@ -1410,7 +1410,7 @@ public:
 	/******************************************************************************
 	copy assignment sets this object's dynamic memory pointers to null
 	******************************************************************************/
-	IPM& operator=(const IPM& other)
+	MIF& operator=(const MIF& other)
 	{
         if (this == &other) return *this;
 		
