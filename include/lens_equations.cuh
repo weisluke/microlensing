@@ -185,4 +185,64 @@ __device__ T mu(Complex<T> z, T kappa, T gamma, T theta, star<T>* stars, T kappa
 	return 1 / inv_mu(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
 }
 
+/******************************************************************************
+derivative of the inverse of the magnification at a point in the image plane
+with respect to z
+
+\param z -- complex image plane position
+\param kappa -- total convergence
+\param gamma -- external shear
+\param theta -- size of the Einstein radius of a unit mass point lens
+\param stars -- pointer to array of point mass lenses
+\param kappastar -- convergence in point mass lenses
+\param node -- node within which to calculate the deflection angle
+\param rectangular -- whether the star field is rectangular or not
+\param corner -- complex number denoting the corner of the rectangular field of
+				 point mass lenses
+\param approx -- whether the smooth matter deflection is approximate or not
+\param taylor_smooth -- degree of the taylor series for alpha_smooth if
+						approximate
+
+\return d_mu^-1_d_z
+******************************************************************************/
+template <typename T>
+__device__ Complex<T> d_inv_mu_d_z(Complex<T> z, T kappa, T gamma, T theta, star<T>* stars, T kappastar, TreeNode<T>* node,
+	int rectangular, Complex<T> corner, int approx, int taylor_smooth)
+{
+    Complex<T> dwdzbar = d_w_d_zbar<T>(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
+    Complex<T> d2wdzbar2 = d2_w_d_zbar2<T>(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
+
+	return -dwdzbar * d2wdzbar2.conj();
+}
+
+/******************************************************************************
+derivative of the inverse of the magnification at a point in the image plane
+with respect to zbar
+
+\param z -- complex image plane position
+\param kappa -- total convergence
+\param gamma -- external shear
+\param theta -- size of the Einstein radius of a unit mass point lens
+\param stars -- pointer to array of point mass lenses
+\param kappastar -- convergence in point mass lenses
+\param node -- node within which to calculate the deflection angle
+\param rectangular -- whether the star field is rectangular or not
+\param corner -- complex number denoting the corner of the rectangular field of
+				 point mass lenses
+\param approx -- whether the smooth matter deflection is approximate or not
+\param taylor_smooth -- degree of the taylor series for alpha_smooth if
+						approximate
+
+\return d_mu^-1_d_z
+******************************************************************************/
+template <typename T>
+__device__ Complex<T> d_inv_mu_d_zbar(Complex<T> z, T kappa, T gamma, T theta, star<T>* stars, T kappastar, TreeNode<T>* node,
+	int rectangular, Complex<T> corner, int approx, int taylor_smooth)
+{
+    Complex<T> dwdzbar = d_w_d_zbar<T>(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
+    Complex<T> d2wdzbar2 = d2_w_d_zbar2<T>(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
+
+	return -dwdzbar.conj() * d2wdzbar2;
+}
+
 }
