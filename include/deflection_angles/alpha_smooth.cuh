@@ -5,6 +5,9 @@
 #include <numbers>
 
 
+namespace microlensing
+{
+
 /******************************************************************************
 Heaviside Step Function
 
@@ -298,5 +301,7 @@ __host__ __device__ Complex<T> d2_alpha_smooth_d_zbar2(Complex<T> z, T kappastar
 	}
 
 	return d2_a_smooth_d_zbar2;
+}
+
 }
 

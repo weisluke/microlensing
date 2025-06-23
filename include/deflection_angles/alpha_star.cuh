@@ -5,6 +5,9 @@
 #include "tree_node.cuh"
 
 
+namespace microlensing
+{
+
 /******************************************************************************
 calculate the deflection angle within a node due to nearby stars
 
@@ -112,5 +115,7 @@ __host__ __device__ Complex<T> d2_alpha_star_d_zbar2(Complex<T> z, T theta, star
 	d2_a_star_bar_d_z2 *= 2 * theta * theta;
 
 	return d2_a_star_bar_d_z2.conj();
+}
+
 }
 

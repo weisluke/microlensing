@@ -3,6 +3,9 @@
 #include "complex.cuh"
 
 
+namespace microlensing
+{
+
 /******************************************************************************
 calculate the deflection angle due to the macromodel
 
@@ -15,7 +18,7 @@ calculate the deflection angle due to the macromodel
 template <typename T>
 __host__ __device__ Complex<T> alpha_macro(Complex<T> z, T kappa, T gamma)
 {
-	return kappa * z - gamma * z.conj();
+    return kappa * z - gamma * z.conj();
 }
 
 /******************************************************************************
@@ -36,7 +39,7 @@ __host__ __device__ T d_alpha_macro_d_z(Complex<T> z, T kappa, T gamma)
 
 /******************************************************************************
 calculate the derivative of the deflection angle due to the macromodel with
-respect to z
+respect to zbar
 
 \param z -- complex image plane position
 \param kappa -- total convergence
@@ -48,5 +51,7 @@ template <typename T>
 __host__ __device__ T d_alpha_macro_d_zbar(Complex<T> z, T kappa, T gamma)
 {
     return -gamma;
+}
+
 }
 

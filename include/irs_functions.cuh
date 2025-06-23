@@ -113,7 +113,7 @@ __global__ void shoot_rays_kernel(T kappa, T gamma, T theta, star<T>* stars, T k
 
 			if (pixmin && pixsad)
 			{
-				T mu = microlensing::magnification<T>(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
+				T mu = microlensing::mu<T>(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
 				if (mu >= 0)
 				{
 					atomicAdd(&pixmin[ypix.im * npixels.re + ypix.re], 1);
