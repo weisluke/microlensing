@@ -2,7 +2,7 @@
 
 #include "array_functions.cuh"
 #include "complex.cuh"
-#include "util.cuh"
+#include "util/util.cuh"
 
 #include <cstdint> //for std::uintmax_t
 #include <filesystem>

@@ -6,7 +6,7 @@
 #include "polygon.cuh"
 #include "star.cuh"
 #include "tree_node.cuh"
-#include "util.cuh"
+#include "util/util.cuh"
 
 
 /******************************************************************************

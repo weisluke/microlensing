@@ -4,7 +4,7 @@
 #include "complex.cuh"
 #include "ncc_functions.cuh"
 #include "stopwatch.hpp"
-#include "util.cuh"
+#include "util/util.cuh"
 
 #include <thrust/execution_policy.h> //for thrust::device
 #include <thrust/extrema.h> // for thrust::min_element, thrust::max_element

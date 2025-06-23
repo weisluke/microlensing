@@ -13,7 +13,7 @@ Email: weisluke@alum.mit.edu
 #else
 #error "Error. One, and only one, of is_ipm or is_irs must be defined"
 #endif
-#include "util.cuh"
+#include "util/util.cuh"
 
 #include <iostream>
 #include <string>

@@ -7,7 +7,7 @@ Email: weisluke@alum.mit.edu
 
 
 #include "ccf.cuh"
-#include "util.cuh"
+#include "util/util.cuh"
 
 #include <iostream>
 #include <string>
