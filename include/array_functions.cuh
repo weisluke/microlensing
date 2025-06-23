@@ -6,7 +6,9 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <numeric> //for std::reduce
 #include <string>
+#include <vector>
 
 
 /******************************************************************************
@@ -248,6 +250,48 @@ bool write_array(T* vals, int nrows, int ncols, const std::string& fname)
 	outfile.write((char*)(&nrows), sizeof(int));
 	outfile.write((char*)(&ncols), sizeof(int));
 	outfile.write((char*)vals, nrows * ncols * sizeof(T));
+	outfile.close();
+
+	return true;
+}
+
+/******************************************************************************
+write ragged array of values to disk
+
+\param vals -- pointer to array of values
+\param n_cols_per_row -- vector of the number of columns for each row
+\param fname -- location of the file to write to
+
+\return bool -- true if file is successfully written, false if not
+******************************************************************************/
+template <typename T>
+bool write_ragged_array(T* vals, std::vector<int> n_cols_per_row, const std::string& fname)
+{
+	std::filesystem::path fpath = fname;
+
+	if (fpath.extension() != ".bin")
+	{
+		std::cerr << "Error. File " << fname << " is not a .bin file.\n";
+		return false;
+	}
+
+	std::ofstream outfile;
+
+	outfile.open(fname, std::ios_base::binary);
+
+	if (!outfile.is_open())
+	{
+		std::cerr << "Error. Failed to open file " << fname << "\n";
+		return false;
+	}
+	int n_rows = n_cols_per_row.size();
+	outfile.write((char*)(&n_rows), sizeof(int));
+	for (int i = 0; i < n_rows; i++)
+	{
+		int start = std::reduce(&n_cols_per_row[0], &n_cols_per_row[i], 0);
+		outfile.write((char*)(&n_cols_per_row[i]), sizeof(int));
+		outfile.write((char*)(&vals[start]), n_cols_per_row[i] * sizeof(T));
+	}
 	outfile.close();
 
 	return true;
