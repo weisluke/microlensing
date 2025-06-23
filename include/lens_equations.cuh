@@ -150,7 +150,7 @@ inverse of the magnification at a point in the image plane
 \return 1 / mu = (dw / dz)^2 - dw/dzbar * (dw/dzbar)bar
 ******************************************************************************/
 template <typename T>
-__device__ T inv_mu(Complex<T> z, T kappa, T gamma, T theta, star<T>* stars, T kappastar, TreeNode<T>* node,
+__host__ __device__ T inv_mu(Complex<T> z, T kappa, T gamma, T theta, star<T>* stars, T kappastar, TreeNode<T>* node,
 	int rectangular, Complex<T> corner, int approx, int taylor_smooth)
 {
     T a = d_w_d_z<T>(z, kappa, gamma, kappastar, rectangular, corner, approx);
@@ -179,7 +179,7 @@ magnification at a point in the image plane
 \return mu = ( (dw / dz)^2 - dw/dzbar * (dw/dzbar)bar ) ^ -1
 ******************************************************************************/
 template <typename T>
-__device__ T mu(Complex<T> z, T kappa, T gamma, T theta, star<T>* stars, T kappastar, TreeNode<T>* node,
+__host__ __device__ T mu(Complex<T> z, T kappa, T gamma, T theta, star<T>* stars, T kappastar, TreeNode<T>* node,
 	int rectangular, Complex<T> corner, int approx, int taylor_smooth)
 {
 	return 1 / inv_mu(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
@@ -206,7 +206,7 @@ with respect to z
 \return d_mu^-1_d_z
 ******************************************************************************/
 template <typename T>
-__device__ Complex<T> d_inv_mu_d_z(Complex<T> z, T kappa, T gamma, T theta, star<T>* stars, T kappastar, TreeNode<T>* node,
+__host__ __device__ Complex<T> d_inv_mu_d_z(Complex<T> z, T kappa, T gamma, T theta, star<T>* stars, T kappastar, TreeNode<T>* node,
 	int rectangular, Complex<T> corner, int approx, int taylor_smooth)
 {
     Complex<T> dwdzbar = d_w_d_zbar<T>(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
@@ -236,7 +236,7 @@ with respect to zbar
 \return d_mu^-1_d_z
 ******************************************************************************/
 template <typename T>
-__device__ Complex<T> d_inv_mu_d_zbar(Complex<T> z, T kappa, T gamma, T theta, star<T>* stars, T kappastar, TreeNode<T>* node,
+__host__ __device__ Complex<T> d_inv_mu_d_zbar(Complex<T> z, T kappa, T gamma, T theta, star<T>* stars, T kappastar, TreeNode<T>* node,
 	int rectangular, Complex<T> corner, int approx, int taylor_smooth)
 {
     Complex<T> dwdzbar = d_w_d_zbar<T>(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
