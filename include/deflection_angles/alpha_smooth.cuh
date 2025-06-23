@@ -1,54 +1,13 @@
 #pragma once
 
 #include "complex.cuh"
+#include "util/math_util.cuh"
 
 #include <numbers>
 
 
 namespace microlensing
 {
-
-/******************************************************************************
-Heaviside Step Function
-
-\param x -- number to evaluate
-
-\return 1 if x >= 0, 0 if x < 0
-******************************************************************************/
-template <typename T>
-__host__ __device__ T heaviside(T x)
-{
-	if (x >= 0)
-	{
-		return 1;
-	}
-	else
-	{
-		return 0;
-	}
-}
-
-/******************************************************************************
-2-Dimensional Boxcar Function
-
-\param z -- complex number to evalulate
-\param corner -- corner of the rectangular region
-
-\return 1 if z lies within or on the border of the rectangle defined by corner,
-		0 if it is outside
-******************************************************************************/
-template <typename T>
-__host__ __device__ T boxcar(Complex<T> z, Complex<T> corner)
-{
-	if (-corner.re <= z.re && z.re <= corner.re && -corner.im <= z.im && z.im <= corner.im)
-	{
-		return 1;
-	}
-	else
-	{
-		return 0;
-	}
-}
 
 /******************************************************************************
 calculate the deflection angle due to smooth matter

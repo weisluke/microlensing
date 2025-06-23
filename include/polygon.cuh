@@ -1,6 +1,7 @@
 #pragma once
 
 #include "complex.cuh"
+#include "util/math_util.cuh"
 
 
 namespace polygon
@@ -9,21 +10,6 @@ namespace polygon
 	the intersection polygons will contain at most 7 points
 	******************************************************************************/
 	const int MAX_NUM_SIDES = 7;
-}
-
-/******************************************************************************
-return the sign of a number
-
-\param val -- number to find the sign of
-
-\return -1, 0, or 1
-******************************************************************************/
-template <typename T>
-__device__ T sgn(T val)
-{
-	if (val < -0) return -1;
-	if (val > 0) return 1;
-	return 0;
 }
 
 /******************************************************************************
