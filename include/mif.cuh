@@ -128,6 +128,14 @@ private:
 
 	int* binomial_coeffs = nullptr;
 
+	Complex<T>* image_line = nullptr;
+	Complex<T>* source_line = nullptr;
+	T* magnifications = nullptr;
+	std::vector<int> num_images;
+
+	std::vector<Complex<T>> images;
+	std::vector<Complex<T>> image_mags;
+
 
 
 	bool set_cuda_devices(int verbose)
@@ -822,206 +830,13 @@ private:
 		return true;
 	}
 
-	bool shoot_cells(int verbose)
+	bool find_image_line(int verbose)
 	{
-		set_threads(threads, 16, 16);
-		set_blocks(threads, blocks, num_ray_threads.re, num_ray_threads.im);
-
-		unsigned long long int* percentage = nullptr;
-		cudaMallocManaged(&percentage, sizeof(unsigned long long int));
-		if (cuda_error("cudaMallocManaged(*percentage)", false, __FILE__, __LINE__)) return false;
-
-		*percentage = 1;
-
-		/******************************************************************************
-		shoot rays and calculate time taken in seconds
-		******************************************************************************/
-		print_verbose("Shooting cells...\n", verbose, 1);
-		stopwatch.start();
-		shoot_cells_kernel<T> <<<blocks, threads>>> (kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
-			rectangular, corner, approx, taylor_smooth, ray_half_sep, num_ray_threads, center_x, half_length_x,
-			center_y, half_length_y, pixels_minima, pixels_saddles, pixels, num_pixels_y, percentage, verbose);
-		if (cuda_error("shoot_rays_kernel", true, __FILE__, __LINE__)) return false;
-		t_shoot_cells = stopwatch.stop();
-		print_verbose("\nDone shooting cells. Elapsed time: " << t_shoot_cells << " seconds.\n\n", verbose, 1);
-
-
-		cudaFree(percentage);
-		if (cuda_error("cudaFree(*percentage)", false, __FILE__, __LINE__)) return false;
-		percentage = nullptr;
-
-
-		if (write_parities)
-		{
-			print_verbose("Adding arrays...\n", verbose, 2);
-			thrust::transform(thrust::device, 
-							  pixels_minima, pixels_minima + num_pixels_y.re * num_pixels_y.im, 
-							  pixels_saddles, 
-							  pixels, 
-							  thrust::plus<T>());
-			print_verbose("Done adding arrays.\n\n", verbose, 2);
-		}
-
 		return true;
 	}
 
-	bool create_histograms(int verbose)
+	bool find_point_images(int verbose)
 	{
-		/******************************************************************************
-		create histograms of pixel values
-		******************************************************************************/
-
-		if (write_histograms)
-		{
-			print_verbose("Creating histograms...\n", verbose, 2);
-			stopwatch.start();
-
-			/******************************************************************************
-			factor by which to multiply values before casting to integers
-			in this way, the histogram will be of the value * 1000
-			(i.e., accurate to 3 decimals)
-			******************************************************************************/
-			int factor = 1000;
-
-
-			/******************************************************************************
-			histogram of mu
-			******************************************************************************/
-			min_mag = std::round(*thrust::min_element(thrust::device, pixels, pixels + num_pixels_y.re * num_pixels_y.im) * factor);
-			max_mag = std::round(*thrust::max_element(thrust::device, pixels, pixels + num_pixels_y.re * num_pixels_y.im) * factor);
-
-			T mu_min_theory = 1 / ((1 - kappa_tot + kappa_star) * (1 - kappa_tot + kappa_star));
-			T mu_min_actual = 1.0 * min_mag / factor;
-
-			if (mu_ave > 1 && mu_min_actual < mu_min_theory)
-			{
-				std::cerr << "Warning. Minimum magnification after shooting cells is less than the theoretical minimum.\n";
-				std::cerr << "   mu_min_actual = " << mu_min_actual << "\n";
-				std::cerr << "   mu_min_theory = 1 / (1 - (kappa_tot - kappa_star))^2\n";
-				std::cerr << "                 = 1 / (1 - (" << kappa_tot << " - " << kappa_star << "))^2 = " << mu_min_theory << "\n";
-				print_verbose("\n", verbose * (!write_parities && verbose < 2), 1);
-			}
-
-			if (write_parities)
-			{
-				int min_mag_minima = std::round(*thrust::min_element(thrust::device, pixels_minima, pixels_minima + num_pixels_y.re * num_pixels_y.im) * factor);
-				int max_mag_minima = std::round(*thrust::max_element(thrust::device, pixels_minima, pixels_minima + num_pixels_y.re * num_pixels_y.im) * factor);
-
-				mu_min_actual = 1.0 * min_mag_minima / factor;
-
-				if (mu_ave > 1 && mu_min_actual < mu_min_theory)
-				{
-					std::cerr << "Warning. Minimum positive parity magnification after shooting cells is less than the theoretical minimum.\n";
-					std::cerr << "   mu_min_actual = " << mu_min_actual << "\n";
-					std::cerr << "   mu_min_theory = 1 / (1 - (kappa_tot - kappa_star))^2\n";
-					std::cerr << "                 = 1 / (1 - (" << kappa_tot << " - " << kappa_star << "))^2 = " << mu_min_theory << "\n";
-					print_verbose("\n", verbose * (verbose < 2), 1);
-				}
-
-				int min_mag_saddles = std::round(*thrust::min_element(thrust::device, pixels_saddles, pixels_saddles + num_pixels_y.re * num_pixels_y.im) * factor);
-				int max_mag_saddles = std::round(*thrust::max_element(thrust::device, pixels_saddles, pixels_saddles + num_pixels_y.re * num_pixels_y.im) * factor);
-
-				min_mag = std::min({min_mag, min_mag_minima, min_mag_saddles});
-				max_mag = std::max({max_mag, max_mag_minima, max_mag_saddles});
-			}
-
-			histogram_length = max_mag - min_mag + 1;
-
-			cudaMallocManaged(&histogram, histogram_length * sizeof(int));
-			if (cuda_error("cudaMallocManaged(*histogram)", false, __FILE__, __LINE__)) return false;
-			if (write_parities)
-			{
-				cudaMallocManaged(&histogram_minima, histogram_length * sizeof(int));
-				if (cuda_error("cudaMallocManaged(*histogram_minima)", false, __FILE__, __LINE__)) return false;
-				cudaMallocManaged(&histogram_saddles, histogram_length * sizeof(int));
-				if (cuda_error("cudaMallocManaged(*histogram_saddles)", false, __FILE__, __LINE__)) return false;
-			}
-
-
-			thrust::fill(thrust::device, histogram, histogram + histogram_length, 0);
-			if (write_parities)
-			{
-				thrust::fill(thrust::device, histogram_minima, histogram_minima + histogram_length, 0);
-				thrust::fill(thrust::device, histogram_saddles, histogram_saddles + histogram_length, 0);
-			}
-
-
-			set_threads(threads, 16, 16);
-			set_blocks(threads, blocks, num_pixels_y.re, num_pixels_y.im);
-
-			histogram_kernel<T> <<<blocks, threads>>> (pixels, num_pixels_y, min_mag, histogram, factor);
-			if (cuda_error("histogram_kernel", true, __FILE__, __LINE__)) return false;
-			if (write_parities)
-			{
-				histogram_kernel<T> <<<blocks, threads>>> (pixels_minima, num_pixels_y, min_mag, histogram_minima, factor);
-				if (cuda_error("histogram_kernel", true, __FILE__, __LINE__)) return false;
-				histogram_kernel<T> <<<blocks, threads>>> (pixels_saddles, num_pixels_y, min_mag, histogram_saddles, factor);
-				if (cuda_error("histogram_kernel", true, __FILE__, __LINE__)) return false;
-			}
-			
-
-			/******************************************************************************
-			histogram of log_10(mu)
-			******************************************************************************/
-
-			min_log_mag = std::round(std::log10(*thrust::min_element(thrust::device, pixels, pixels + num_pixels_y.re * num_pixels_y.im)) * factor);
-			max_log_mag = std::round(std::log10(*thrust::max_element(thrust::device, pixels, pixels + num_pixels_y.re * num_pixels_y.im)) * factor);
-
-			if (write_parities)
-			{
-				int min_log_mag_minima = std::round(std::log10(*thrust::min_element(thrust::device, pixels_minima, pixels_minima + num_pixels_y.re * num_pixels_y.im)) * factor);
-				int max_log_mag_minima = std::round(std::log10(*thrust::max_element(thrust::device, pixels_minima, pixels_minima + num_pixels_y.re * num_pixels_y.im)) * factor);
-
-				int min_log_mag_saddles = std::round(std::log10(*thrust::min_element(thrust::device, pixels_saddles, pixels_saddles + num_pixels_y.re * num_pixels_y.im)) * factor);
-				int max_log_mag_saddles = std::round(std::log10(*thrust::max_element(thrust::device, pixels_saddles, pixels_saddles + num_pixels_y.re * num_pixels_y.im)) * factor);
-
-				min_log_mag = std::min({min_log_mag, min_log_mag_minima, min_log_mag_saddles});
-				max_log_mag = std::max({max_log_mag, max_log_mag_minima, max_log_mag_saddles});
-			}
-
-			log_histogram_length = max_log_mag - min_log_mag + 1;
-
-			cudaMallocManaged(&log_histogram, log_histogram_length * sizeof(int));
-			if (cuda_error("cudaMallocManaged(*log_histogram)", false, __FILE__, __LINE__)) return false;
-			if (write_parities)
-			{
-				cudaMallocManaged(&log_histogram_minima, log_histogram_length * sizeof(int));
-				if (cuda_error("cudaMallocManaged(*log_histogram_minima)", false, __FILE__, __LINE__)) return false;
-				cudaMallocManaged(&log_histogram_saddles, log_histogram_length * sizeof(int));
-				if (cuda_error("cudaMallocManaged(*log_histogram_saddles)", false, __FILE__, __LINE__)) return false;
-			}
-
-
-			thrust::fill(thrust::device, log_histogram, log_histogram + log_histogram_length, 0);
-			if (write_parities)
-			{
-				thrust::fill(thrust::device, log_histogram_minima, log_histogram_minima + log_histogram_length, 0);
-				thrust::fill(thrust::device, log_histogram_saddles, log_histogram_saddles + log_histogram_length, 0);
-			}
-
-
-			set_threads(threads, 16, 16);
-			set_blocks(threads, blocks, num_pixels_y.re, num_pixels_y.im);
-
-			log_histogram_kernel<T> <<<blocks, threads>>> (pixels, num_pixels_y, min_log_mag, log_histogram, factor);
-			if (cuda_error("log_histogram_kernel", true, __FILE__, __LINE__)) return false;
-			if (write_parities)
-			{
-				log_histogram_kernel<T> <<<blocks, threads>>> (pixels_minima, num_pixels_y, min_log_mag, log_histogram_minima, factor);
-				if (cuda_error("log_histogram_kernel", true, __FILE__, __LINE__)) return false;
-				log_histogram_kernel<T> <<<blocks, threads>>> (pixels_saddles, num_pixels_y, min_log_mag, log_histogram_saddles, factor);
-				if (cuda_error("log_histogram_kernel", true, __FILE__, __LINE__)) return false;
-			}
-
-
-			t_elapsed = stopwatch.stop();
-			print_verbose("Done creating histograms. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 2);
-		}
-
-		/******************************************************************************
-		done creating histograms of pixel values
-		******************************************************************************/
-
 		return true;
 	}
 
@@ -1272,8 +1087,8 @@ public:
 		if (!allocate_initialize_memory(verbose)) return false;
 		if (!populate_star_array(verbose)) return false;
 		if (!create_tree(verbose)) return false;
-		if (!shoot_cells(verbose)) return false;
-		if (!create_histograms(verbose)) return false;
+		if (!find_image_line(verbose)) return false;
+		if (!find_point_images(verbose)) return false;
 
 		return true;
 	}
