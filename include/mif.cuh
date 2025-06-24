@@ -1359,9 +1359,17 @@ public:
 		return true;
 	}
 
-	int get_num_stars()			{return num_stars;}
-	Complex<T> get_corner()		{if (rectangular) {return corner;} else {return Complex<T>(corner.abs(), 0);}}
-	star<T>* get_stars()		{return stars;}
+	int get_num_stars()						{return num_stars;}
+	Complex<T> get_corner()					{if (rectangular) {return corner;} else {return Complex<T>(corner.abs(), 0);}}
+	star<T>* get_stars()					{return stars;}
+	Complex<T>* get_images()				{return &images[0];}
+	int get_num_images()					{return images.size();}
+	Complex<T>* get_image_lines()			{return image_lines;}
+	int get_num_image_lines()				{return image_lines_lengths.size();}
+	int* get_image_lines_lengths()			{return &image_lines_lengths[0];}
+	int get_total_image_lines_length()		{return std::reduce(image_lines_lengths.begin(), image_lines_lengths.end(), 0);}
+	Complex<T>* get_source_lines()			{return source_lines;}
+	T* get_image_lines_mags()				{return image_lines_mags;}
 
 };
 
