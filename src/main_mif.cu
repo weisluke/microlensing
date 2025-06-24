@@ -26,7 +26,7 @@ MIF<dtype> mif;
 /******************************************************************************
 constants to be used
 ******************************************************************************/
-constexpr int OPTS_SIZE = 2 * 24;
+constexpr int OPTS_SIZE = 2 * 26;
 const std::string OPTS[OPTS_SIZE] =
 {
 	"-h", "--help",
@@ -45,8 +45,10 @@ const std::string OPTS[OPTS_SIZE] =
 	"-a", "--approx",
 	"-ss", "--safety_scale",
 	"-sf", "--starfile",
-	"-cy1", "--center_y1",
-	"-cy2", "--center_y2",
+	"-y1", "--y1",
+	"-y2", "--y2",
+	"-v1", "--v1",
+	"-v2", "--v2",
 	"-rs", "--random_seed",
 	"-ws", "--write_stars",
 	"-wm", "--write_maps",
@@ -110,7 +112,7 @@ void display_usage(char* name)
 		<< "  -a,--approx              Specify whether terms for alpha_smooth should be\n"
 		<< "                           approximated (1) or exact (0). Default value: " << mif.approx << "\n"
 		<< "  -ss,--safety_scale       Specify the ratio of the size of the star field to\n"
-		<< "                           the size of the shooting region.\n"
+		<< "                           the radius of convergence for alpha_smooth.\n"
 		<< "                           Default value: " << mif.safety_scale << "\n"
 		<< "  -sf,--starfile           Specify the location of a binary file containing\n"
 		<< "                           values for num_stars, rectangular, corner,\n"
@@ -121,9 +123,12 @@ void display_usage(char* name)
 		<< "                           microlens, in units where theta_star = 1, is also\n"
 		<< "                           accepted. If provided, this takes precedence for all\n"
 		<< "                           star information.\n"
-		<< "  -cy1, --center_y1        Specify the y1 and y2 coordinates of the center of\n"
-		<< "  -cy2, --center_y2        the magnification map.\n"
-		<< "                           Default value: " << mif.center_y << "\n"
+		<< "  -y1, --y1                Specify the y1 and y2 coordinates of the source, or\n"
+		<< "  -y2, --y2                a position that the source travels through.\n"
+		<< "                           Default value: " << mif.w0 << "\n"
+		<< "  -v1, --v1                Specify the y1 and y2 components of the source\n"
+		<< "  -v2, --v2                velocity.\n"
+		<< "                           Default value: " << mif.v << "\n"
 		<< "  -rs,--random_seed        Specify the random seed for star field generation.\n"
 		<< "                           A value of 0 is reserved for star input files.\n"
 		<< "  -ws,--write_stars        Specify whether to write stars (1) or not (0).\n"
@@ -398,27 +403,51 @@ int main(int argc, char* argv[])
 		{
 			set_param("starfile", mif.starfile, cmdinput, verbose);
 		}
-		else if (argv[i] == std::string("-cy1") || argv[i] == std::string("--center_y1"))
+		else if (argv[i] == std::string("-y1") || argv[i] == std::string("--y1"))
 		{
 			try
 			{
-				set_param("center_y1", mif.center_y.re, std::stod(cmdinput), verbose);
+				set_param("y1", mif.w0.re, std::stod(cmdinput), verbose);
 			}
 			catch (...)
 			{
-				std::cerr << "Error. Invalid center_y1 input.\n";
+				std::cerr << "Error. Invalid y1 input.\n";
 				return -1;
 			}
 		}
-		else if (argv[i] == std::string("-cy2") || argv[i] == std::string("--center_y2"))
+		else if (argv[i] == std::string("-y2") || argv[i] == std::string("--y2"))
 		{
 			try
 			{
-				set_param("center_y2", mif.center_y.im, std::stod(cmdinput), verbose);
+				set_param("y2", mif.w0.im, std::stod(cmdinput), verbose);
 			}
 			catch (...)
 			{
-				std::cerr << "Error. Invalid center_y2 input.\n";
+				std::cerr << "Error. Invalid y2 input.\n";
+				return -1;
+			}
+		}
+		else if (argv[i] == std::string("-v1") || argv[i] == std::string("--v1"))
+		{
+			try
+			{
+				set_param("v1", mif.v.re, std::stod(cmdinput), verbose);
+			}
+			catch (...)
+			{
+				std::cerr << "Error. Invalid v1 input.\n";
+				return -1;
+			}
+		}
+		else if (argv[i] == std::string("-v2") || argv[i] == std::string("--v2"))
+		{
+			try
+			{
+				set_param("v2", mif.v.im, std::stod(cmdinput), verbose);
+			}
+			catch (...)
+			{
+				std::cerr << "Error. Invalid v2 input.\n";
 				return -1;
 			}
 		}

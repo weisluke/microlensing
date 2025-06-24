@@ -9,7 +9,7 @@ class MIF(object):
     def __init__(self, kappa_tot: float = None, shear: float = None, smooth_fraction: float = None, kappa_star: float = None, 
                  theta_star: float = None, mass_function: str = None, m_solar: float = None, m_lower: float = None, m_upper: float = None,
                  light_loss: float = None, rectangular: bool = None, approx: bool = None, safety_scale: float = None,
-                 starfile: str = None, center_y1: float = None, center_y2: float = None, random_seed: int = None,
+                 starfile: str = None, y1: float = None, y2: float = None, v1: float = None, v2: float = None, random_seed: int = None,
                  write_stars: bool = False, write_maps: bool = False, write_parities: bool = False, write_histograms: bool = False,
                  outfile_prefix: str = None, verbose: int = 0):
         '''
@@ -29,8 +29,10 @@ class MIF(object):
         :param starfile: the location of a binary file containing values for num_stars, rectangular, corner, theta_star, and the star positions and masses.
                          A whitespace delimited text file where each line contains the x1 and x2 coordinates and the mass of a microlens, in units where 
                          theta_star = 1, is also accepted. If provided, this takes precedence for all star information
-        :param center_y1: y1 coordinate of the center of the magnification map
-        :param center_y2: y2 coordinate of the center of the magnification map
+        :param y1: y1 coordinate of the source or position that the source travels through
+        :param y2: y2 coordinate of the source or position that the source travels through
+        :param v1: y1 coordinate of the source velocity
+        :param v2: y2 coordinate of the source velocity
         :param random_seed: random seed for star field generation. A value of 0 is reserved for star input files
         :param write_stars: whether to write stars or not
         :param write_maps: whether to write magnification maps or not
@@ -68,8 +70,10 @@ class MIF(object):
         
         self.starfile = starfile
         
-        self.center_y1 = center_y1
-        self.center_y2 = center_y2
+        self.y1 = y1
+        self.y2 = y2
+        self.v1 = v1
+        self.v2 = v2
             
         self.write_stars = write_stars
         self.write_maps = write_maps
@@ -233,26 +237,48 @@ class MIF(object):
             self.lib.set_starfile(self.obj, value.encode('utf-8'))
 
     @property
-    def center_y1(self):
-        return self.lib.get_center_y1(self.obj)
+    def y1(self):
+        return self.lib.get_y1(self.obj)
     
-    @center_y1.setter
-    def center_y1(self, value):
+    @y1.setter
+    def y1(self, value):
         if value is not None:
-            self.lib.set_center_y1(self.obj, value)
+            self.lib.set_y1(self.obj, value)
 
     @property
-    def center_y2(self):
-        return self.lib.get_center_y2(self.obj)
+    def y2(self):
+        return self.lib.get_y2(self.obj)
     
-    @center_y2.setter
-    def center_y2(self, value):
+    @y2.setter
+    def y2(self, value):
         if value is not None:
-            self.lib.set_center_y2(self.obj, value)
+            self.lib.set_y2(self.obj, value)
 
     @property
-    def center(self):
-        return (self.center_y1, self.center_y2)
+    def w0(self):
+        return (self.y1, self.y2)
+
+    @property
+    def v1(self):
+        return self.lib.get_v1(self.obj)
+    
+    @v1.setter
+    def v1(self, value):
+        if value is not None:
+            self.lib.set_v1(self.obj, value)
+
+    @property
+    def v2(self):
+        return self.lib.get_v2(self.obj)
+    
+    @v2.setter
+    def v2(self, value):
+        if value is not None:
+            self.lib.set_v2(self.obj, value)
+
+    @property
+    def v(self):
+        return (self.v1, self.v2)
 
     @property
     def random_seed(self):

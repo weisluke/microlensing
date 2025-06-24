@@ -27,8 +27,10 @@ extern "C"
     void set_approx(MIF<dtype> *self, int val)                  {self->approx               = val;}
     void set_safety_scale(MIF<dtype> *self, dtype val)          {self->safety_scale         = val;}
     void set_starfile(MIF<dtype> *self, const char* val)        {self->starfile             = val;}
-    void set_center_y1(MIF<dtype> *self, dtype val)             {self->center_y.re          = val;}
-    void set_center_y2(MIF<dtype> *self, dtype val)             {self->center_y.im          = val;}
+    void set_y1(MIF<dtype> *self, dtype val)                    {self->w0.re                = val;}
+    void set_y2(MIF<dtype> *self, dtype val)                    {self->w0.im                = val;}
+    void set_v1(MIF<dtype> *self, dtype val)                    {self->v.re                 = val;}
+    void set_v2(MIF<dtype> *self, dtype val)                    {self->v.im                 = val;}
     void set_random_seed(MIF<dtype> *self, int val)             {self->random_seed          = val;}
     void set_write_stars(MIF<dtype> *self, int val)             {self->write_stars          = val;}
     void set_write_maps(MIF<dtype> *self, int val)              {self->write_maps           = val;}
@@ -49,8 +51,10 @@ extern "C"
     int get_approx(MIF<dtype> *self)                            {return self->approx;}
     dtype get_safety_scale(MIF<dtype> *self)                    {return self->safety_scale;}
     const char* get_starfile(MIF<dtype> *self)                  {return (self->starfile).c_str();}
-    dtype get_center_y1(MIF<dtype> *self)                       {return self->center_y.re;}
-    dtype get_center_y2(MIF<dtype> *self)                       {return self->center_y.im;}
+    dtype get_y1(MIF<dtype> *self)                              {return self->w0.re;}
+    dtype get_y2(MIF<dtype> *self)                              {return self->w0.im;}
+    dtype get_v1(MIF<dtype> *self)                              {return self->v.re;}
+    dtype get_v2(MIF<dtype> *self)                              {return self->v.im;}
     int get_random_seed(MIF<dtype> *self)                       {return self->random_seed;}
     int get_write_stars(MIF<dtype> *self)                       {return self->write_stars;}
     int get_write_maps(MIF<dtype> *self)                        {return self->write_maps;}

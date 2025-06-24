@@ -55,7 +55,8 @@ public:
 	int approx = 1; //whether terms for alpha_smooth are exact or approximate
 	T safety_scale = static_cast<T>(1.37); //ratio of the size of the star field to the radius of convergence for alpha_smooth
 	std::string starfile = "";
-	Complex<T> center_y = Complex<T>();
+	Complex<T> w0 = Complex<T>();
+	Complex<T> v = Complex<T>(2, 3);
 	int random_seed = 0;
 	int write_stars = 1;
 	int write_maps = 1;
