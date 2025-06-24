@@ -21,6 +21,7 @@
 #include <thrust/fill.h> //for thrust::fill
 #include <thrust/functional.h> //for thrust::plus
 #include <thrust/transform.h> //for thrust::transform
+#include <thrust/universal_vector.h> //for thrust::universal_vector
 
 #include <algorithm> //for std::min and std::max
 #include <chrono> //for setting random seed with clock
@@ -30,6 +31,7 @@
 #include <limits> //for std::numeric_limits
 #include <memory> //for std::shared_ptr
 #include <numbers>
+#include <numeric> //for std::reduce
 #include <string>
 #include <vector>
 
@@ -832,6 +834,230 @@ private:
 
 	bool find_image_line(int verbose)
 	{
+		print_verbose("Finding images...\n", verbose, 1);
+
+        std::vector<std::vector<Complex<T>>> tmp_image_line;
+
+        Complex<T> z, new_z, tmp_dz, dz;
+        T max_dz = theta_star * std::sqrt(mean_mass2 / mean_mass) / s;
+        T min_dz = max_dz / 1000;
+        TreeNode<T>* node;
+        T mu1, mu2;
+        int s = 30; //scale factor for how far true root can be from the tangent estimate
+        T dt = 1;
+
+        thrust::universal_vector<int> use_star(num_stars, 1);
+        set_threads(threads, 256);
+        set_blocks(threads, blocks, num_stars);
+        use_star_kernel<T> <<<blocks, threads>>> (stars, num_stars, kappa_tot, shear, w0, v, max_r, &use_star[0]);
+        if (cuda_error("use_star_kernel", true, __FILE__, __LINE__)) return false;
+        
+		/******************************************************************************
+		BEGIN finding main image line
+		******************************************************************************/
+		print_verbose("Finding main image line...\n", verbose, 2);
+        stopwatch.start();
+
+        //start in a position such that the velocity vector takes you through the field
+        z = Complex<T>(-v.re / (1 - kappa_tot + shear), 
+            		   -v.im / (1 - kappa_tot - shear));
+        z = z / z.abs() * corner.abs() * safety_scale;
+
+        tmp_image_line.push_back(std::vector<Complex<T>>());
+
+        z = find_root<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+						 rectangular, corner, approx, taylor_smooth, w0, v);
+        tmp_image_line.back().push_back(z);
+
+        node = treenode::get_nearest_node(z, tree[0]);
+        mu1 = microlensing::magnification<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, node,
+                        					 rectangular, corner, approx, taylor_smooth);
+        do
+        {
+            new_z = step_tangent<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+                        rectangular, corner, approx, taylor_smooth, w0, v, dt, min_dz, max_dz);
+            tmp_dz = (new_z - z);
+            new_z = find_root<T>(new_z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+                        rectangular, corner, approx, taylor_smooth, w0, v);
+            dz = (new_z - z);
+
+            //if actual root is too large relative to the initial tangent step
+            if ((dz - tmp_dz).abs() * s > tmp_dz.abs())
+            {
+                dt /= 2;
+                continue;
+            }
+            //if actual root is very close to the tangent step
+            else if ((dz - tmp_dz).abs() * s * s < tmp_dz.abs())
+            {
+                dt *= 2;
+            }
+
+            node = treenode::get_nearest_node(new_z, tree[0]);
+            mu2 = microlensing::magnification<T>(new_z, kappa_tot, shear, theta_star, stars, kappa_star, node,
+                            					 rectangular, corner, approx, taylor_smooth);
+            
+            if ((mu1 < 0 && mu2 > 0 )
+                || (mu1 > 0 && mu2 < 0))
+            {
+                tmp_dz = dz;
+                new_z = z - mu1 / (mu2 - mu1) * dz;
+                new_z = find_critical_curve_image<T>(new_z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+                            rectangular, corner, approx, taylor_smooth, w0, v);
+                dz = (new_z - z);
+                dt *= dz.abs() / tmp_dz.abs();
+                mu2 = 0;
+            }           
+            z = new_z;
+            mu1 = mu2;
+            tmp_image_line.back().push_back(z);
+
+            if (is_near_star(z, stars, tree[0], dz)
+                && is_near_star(z - dz, stars, tree[0], dz))
+            {
+                int index = get_nearest_star(z - dz / 2, stars, tree[0]);
+                use_star[index] = 0;
+            }
+        } while (z.abs() < safety_scale * corner.abs());
+        t_elapsed = stopwatch.stop();
+        print_verbose("Done finding main image line. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 2);
+		/******************************************************************************
+		END finding main image line
+		******************************************************************************/
+
+        
+		/******************************************************************************
+		BEGIN finding secondary image loops
+		******************************************************************************/
+		print_verbose("Finding secondary image loops...\n", verbose, 2);
+        stopwatch.start();
+        for (int i = 0; i < num_stars; i++)
+        {
+            if (use_star[i])
+            {
+                use_star[i] = 0;
+                dz = Complex<T>(-v.re / (1 - kappa_tot + shear), 
+                                -v.im / (1 - kappa_tot - shear));
+                max_dz = theta_star * theta_star * stars[i].mass / macro_parametric_image_line(stars[i].position, kappa_tot, shear, w0, v).abs();
+                max_dz /= 2 * s; //diameter to radius
+                max_dz = std::min(max_dz, theta_star * std::sqrt(mean_mass2 / mean_mass) / s);
+                min_dz = max_dz / 1000;
+                dz *= min_dz / dz.abs();
+                z = stars[i].position + dz;
+
+                tmp_image_line.push_back(std::vector<Complex<T>>());
+
+                z = find_root<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+                                    rectangular, corner, approx, taylor_smooth, w0, v);
+                tmp_image_line.back().push_back(z);
+
+                node = treenode::get_nearest_node(z, tree[0]);
+                mu1 = microlensing::magnification<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, node,
+                                rectangular, corner, approx, taylor_smooth);
+                do
+                {
+                    new_z = step_tangent<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+                                			rectangular, corner, approx, taylor_smooth, w0, v, dt, min_dz, max_dz);
+                    tmp_dz = (new_z - z);
+
+                    if (is_near_star(new_z, stars, tree[0], tmp_dz)
+                        && is_near_star(new_z - tmp_dz, stars, tree[0], tmp_dz))
+                    {
+                        int index = get_nearest_star(new_z - tmp_dz / 2, stars, tree[0]);
+                        use_star[index] = 0;
+                        if (index == i)
+                        {
+                            break;
+                        }
+                    }
+
+                    new_z = find_root<T>(new_z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+                                		 rectangular, corner, approx, taylor_smooth, w0, v);
+                    dz = (new_z - z);
+                    if ((dz - tmp_dz).abs() * s > tmp_dz.abs())
+                    {
+                        dt /= 2;
+                        continue;
+                    }
+                    else if ((dz - tmp_dz).abs() * s * s < tmp_dz.abs())
+                    {
+                        dt *= 2;
+                    }
+
+                    node = treenode::get_nearest_node(new_z, tree[0]);
+                    mu2 = microlensing::magnification<T>(new_z, kappa_tot, shear, theta_star, stars, kappa_star, node,
+                                    rectangular, corner, approx, taylor_smooth);
+                    
+                    if ((mu1 < 0 && mu2 > 0 )
+                        || (mu1 > 0 && mu2 < 0))
+                    {
+                        tmp_dz = dz;
+                        new_z = z - mu1 / (mu2 - mu1) * dz;
+                        new_z = find_critical_curve_image<T>(new_z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+                                    rectangular, corner, approx, taylor_smooth, w0, v);
+                        dz = (new_z - z);
+                        dt *= dz.abs() / tmp_dz.abs();
+                        mu2 = 0;
+                    }           
+                    z = new_z;
+                    mu1 = mu2;
+                    tmp_image_line.back().push_back(z);
+                } while (true);
+            }
+        }
+        t_elapsed = stopwatch.stop();
+        print_verbose("Done finding secondary image loops. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 2);
+		/******************************************************************************
+		END finding secondary image loops
+		******************************************************************************/
+
+        print_verbose("Done finding images.\n\n", verbose, 1);
+
+
+        for (int i = 0; i < tmp_image_line.size(); i++)
+        {
+            num_images.push_back(tmp_image_line[i].size());
+        }
+
+        int total_num_images = std::reduce(num_images.begin(), num_images.end(), 0);
+        
+        cudaMallocManaged(&image_line, total_num_images * sizeof(Complex<T>));
+        if (cuda_error("cudaMallocManaged(*image_line)", false, __FILE__, __LINE__)) return false;
+        cudaMallocManaged(&source_line, total_num_images * sizeof(Complex<T>));
+        if (cuda_error("cudaMallocManaged(*source_line)", false, __FILE__, __LINE__)) return false;
+        cudaMallocManaged(&magnifications, total_num_images * sizeof(T));
+        if (cuda_error("cudaMallocManaged(*magnifications)", false, __FILE__, __LINE__)) return false;
+
+        print_verbose("Copying image lines...\n", verbose, 2);
+        stopwatch.start();
+        for (int i = 0; i < tmp_image_line.size(); i++)
+        {
+            int start = std::reduce(&num_images[0], &num_images[i], 0);
+            thrust::copy(tmp_image_line[i].begin(), tmp_image_line[i].end(), &images[start]);
+        }
+        t_elapsed = stopwatch.stop();
+        print_verbose("Done copying image lines. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 2);
+
+
+        set_threads(threads, 256);
+        set_blocks(threads, blocks, total_num_images);
+
+        print_verbose("Mapping image lines...\n", verbose, 2);
+        stopwatch.start();
+        image_to_source_kernel<T> <<<blocks, threads>>> (image_line, total_num_images, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+            rectangular, corner, approx, taylor_smooth, source_line);
+        if (cuda_error("image_to_source_kernel", true, __FILE__, __LINE__)) return false;
+        t_elapsed = stopwatch.stop();
+        print_verbose("Done mapping image lines. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 2);
+
+        print_verbose("Calculating magnifications...\n", verbose, 2);
+        stopwatch.start();
+        magnifications_kernel<T> <<<blocks, threads>>> (images, total_num_images, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+            rectangular, corner, approx, taylor_smooth, magnifications);
+        if (cuda_error("magnifications_kernel", true, __FILE__, __LINE__)) return false;
+        t_elapsed = stopwatch.stop();
+        print_verbose("Done calculating magnifications. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 2);
+		
 		return true;
 	}
 
