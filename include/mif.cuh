@@ -59,9 +59,9 @@ public:
 	Complex<T> v = Complex<T>(2, 3);
 	int random_seed = 0;
 	int write_stars = 1;
-	int write_maps = 1;
-	int write_parities = 0;
-	int write_histograms = 1;
+	int write_images = 1;
+	int write_image_line = 0;
+	int write_magnifications = 1;
 	std::string outfile_prefix = "./";
 
 
@@ -300,21 +300,21 @@ private:
 			return false;
 		}
 
-		if (write_maps != 0 && write_maps != 1)
+		if (write_images != 0 && write_images != 1)
 		{
-			std::cerr << "Error. write_maps must be 1 (true) or 0 (false).\n";
+			std::cerr << "Error. write_images must be 1 (true) or 0 (false).\n";
 			return false;
 		}
 
-		if (write_parities != 0 && write_parities != 1)
+		if (write_image_line != 0 && write_image_line != 1)
 		{
-			std::cerr << "Error. write_parities must be 1 (true) or 0 (false).\n";
+			std::cerr << "Error. write_image_line must be 1 (true) or 0 (false).\n";
 			return false;
 		}
 
-		if (write_histograms != 0 && write_histograms != 1)
+		if (write_magnifications != 0 && write_magnifications != 1)
 		{
-			std::cerr << "Error. write_histograms must be 1 (true) or 0 (false).\n";
+			std::cerr << "Error. write_magnifications must be 1 (true) or 0 (false).\n";
 			return false;
 		}
 

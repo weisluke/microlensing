@@ -33,9 +33,9 @@ extern "C"
     void set_v2(MIF<dtype> *self, dtype val)                    {self->v.im                 = val;}
     void set_random_seed(MIF<dtype> *self, int val)             {self->random_seed          = val;}
     void set_write_stars(MIF<dtype> *self, int val)             {self->write_stars          = val;}
-    void set_write_maps(MIF<dtype> *self, int val)              {self->write_maps           = val;}
-    void set_write_parities(MIF<dtype> *self, int val)          {self->write_parities       = val;}
-    void set_write_histograms(MIF<dtype> *self, int val)        {self->write_histograms     = val;}
+    void set_write_images(MIF<dtype> *self, int val)            {self->write_images         = val;}
+    void set_write_image_line(MIF<dtype> *self, int val)        {self->write_image_line     = val;}
+    void set_write_magnifications(MIF<dtype> *self, int val)    {self->write_magnifications = val;}
     void set_outfile_prefix(MIF<dtype> *self, const char* val)  {self->outfile_prefix       = val;}
 
     dtype get_kappa_tot(MIF<dtype> *self)                       {return self->kappa_tot;}
@@ -57,9 +57,9 @@ extern "C"
     dtype get_v2(MIF<dtype> *self)                              {return self->v.im;}
     int get_random_seed(MIF<dtype> *self)                       {return self->random_seed;}
     int get_write_stars(MIF<dtype> *self)                       {return self->write_stars;}
-    int get_write_maps(MIF<dtype> *self)                        {return self->write_maps;}
-    int get_write_parities(MIF<dtype> *self)                    {return self->write_parities;}
-    int get_write_histograms(MIF<dtype> *self)                  {return self->write_histograms;}
+    int get_write_images(MIF<dtype> *self)                      {return self->write_images;}
+    int get_write_image_line(MIF<dtype> *self)                  {return self->write_image_line;}
+    int get_write_magnifications(MIF<dtype> *self)              {return self->write_magnifications;}
     const char* get_outfile_prefix(MIF<dtype> *self)            {return (self->outfile_prefix).c_str();}
 
     int get_num_stars(MIF<dtype> *self)                         {return self->get_num_stars();}

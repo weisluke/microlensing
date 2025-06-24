@@ -10,7 +10,7 @@ class MIF(object):
                  theta_star: float = None, mass_function: str = None, m_solar: float = None, m_lower: float = None, m_upper: float = None,
                  light_loss: float = None, rectangular: bool = None, approx: bool = None, safety_scale: float = None,
                  starfile: str = None, y1: float = None, y2: float = None, v1: float = None, v2: float = None, random_seed: int = None,
-                 write_stars: bool = False, write_maps: bool = False, write_parities: bool = False, write_histograms: bool = False,
+                 write_stars: bool = False, write_images: bool = False, write_image_line: bool = False, write_magnifications: bool = False,
                  outfile_prefix: str = None, verbose: int = 0):
         '''
         :param kappa_tot: total convergence
@@ -35,12 +35,11 @@ class MIF(object):
         :param v2: y2 coordinate of the source velocity
         :param random_seed: random seed for star field generation. A value of 0 is reserved for star input files
         :param write_stars: whether to write stars or not
-        :param write_maps: whether to write magnification maps or not
-        :param write_parities: whether to write parity specific magnification maps or not
-        :param write_histograms: whether to write histograms or not
+        :param write_images: whether to write image positions or not
+        :param write_image_line: whether to write image line positions or not
+        :param write_magnifications: whether to write magnifications or not
         :param outfile_prefix: prefix to be used in output file names
         :param verbose: verbosity level of messages. must be 0, 1, 2, or 3
-        :param is_double: whether to use float or double library
         '''
         self.lib = lif_mif.lib
 
@@ -76,9 +75,9 @@ class MIF(object):
         self.v2 = v2
             
         self.write_stars = write_stars
-        self.write_maps = write_maps
-        self.write_parities = write_parities
-        self.write_histograms = write_histograms
+        self.write_images = write_images
+        self.write_image_line = write_image_line
+        self.write_magnifications = write_magnifications
         
         self.outfile_prefix = outfile_prefix
 
@@ -299,31 +298,31 @@ class MIF(object):
             self.lib.set_write_stars(self.obj, int(value))
 
     @property
-    def write_maps(self):
-        return bool(self.lib.get_write_maps(self.obj))
+    def write_images(self):
+        return bool(self.lib.get_write_images(self.obj))
     
-    @write_maps.setter
-    def write_maps(self, value):
+    @write_images.setter
+    def write_images(self, value):
         if value is not None:
-            self.lib.set_write_maps(self.obj, int(value))
+            self.lib.set_write_images(self.obj, int(value))
 
     @property
-    def write_parities(self):
-        return bool(self.lib.get_write_parities(self.obj))
+    def write_image_line(self):
+        return bool(self.lib.get_write_image_line(self.obj))
     
-    @write_parities.setter
-    def write_parities(self, value):
+    @write_image_line.setter
+    def write_image_line(self, value):
         if value is not None:
-            self.lib.set_write_parities(self.obj, int(value))
+            self.lib.set_write_image_line(self.obj, int(value))
 
     @property
-    def write_histograms(self):
-        return bool(self.lib.get_write_histograms(self.obj))
+    def write_magnifications(self):
+        return bool(self.lib.get_write_magnifications(self.obj))
     
-    @write_histograms.setter
-    def write_histograms(self, value):
+    @write_magnifications.setter
+    def write_magnifications(self, value):
         if value is not None:
-            self.lib.set_write_histograms(self.obj, int(value))
+            self.lib.set_write_magnifications(self.obj, int(value))
 
     @property
     def outfile_prefix(self):

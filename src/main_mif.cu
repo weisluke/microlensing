@@ -51,9 +51,9 @@ const std::string OPTS[OPTS_SIZE] =
 	"-v2", "--v2",
 	"-rs", "--random_seed",
 	"-ws", "--write_stars",
-	"-wm", "--write_maps",
-	"-wp", "--write_parities",
-	"-wh", "--write_histograms",
+	"-wi", "--write_images",
+	"-wil", "--write_image_line",
+	"-wm", "--write_magnifications",
 	"-o", "--outfile_prefix"
 };
 
@@ -83,64 +83,65 @@ void display_usage(char* name)
 	std::cout
 		<< "                                                                               \n"
 		<< "Options:\n"
-		<< "  -h,--help                Show this help message.\n"
-		<< "  -v,--verbose             Specify verbosity of output from 0 (none) to 1, 2,\n"
-		<< "                           or 3 (low, medium, high). Default value: " << verbose << "\n"
-		<< "  -k,--kappa_tot           Specify the total convergence. Default value: " << mif.kappa_tot << "\n"
-		<< "  -y,--shear               Specify the shear. Default value: " << mif.shear << "\n"
-		<< "  -s,--smooth_fraction     Specify the fraction of convergence due to smoothly\n"
-		<< "                           distributed mass. Default value: " << smooth_fraction << "\n"
-		<< "  -ks,--kappa_star         Specify the convergence in point mass lenses. If\n"
-		<< "                           provided, this overrides any supplied value for the\n"
-		<< "                           smooth fraction. Default value: " << mif.kappa_star << "\n"
-		<< "  -t,--theta_star          Specify the size of the Einstein radius of a unit\n"
-		<< "                           mass point lens in arbitrary units. Default value: " << mif.theta_star << "\n"
-		<< "  -mf,--mass_function      Specify the mass function to use for the point mass\n"
-		<< "                           lenses. Options are: equal, uniform, Salpeter,\n"
-		<< "                           Kroupa, and optical_depth. Default value: " << mif.mass_function_str << "\n"
-		<< "  -ms,--m_solar            Specify the solar mass in arbitrary units.\n"
-		<< "                           Default value: " << mif.m_solar << "\n"
-		<< "  -ml,--m_lower            Specify the lower mass cutoff in solar mass units.\n"
-		<< "                           Default value: " << mif.m_lower << "\n"
-		<< "  -mh,--m_upper            Specify the upper mass cutoff in solar mass units.\n"
-		<< "                           Default value: " << mif.m_upper << "\n"
-		<< "  -ll,--light_loss         Allowed average fraction of light lost due to\n"
-		<< "                           scatter by the microlenses in the large deflection\n"
-		<< "                           limit. Default value: " << mif.light_loss << "\n"
-		<< "  -r,--rectangular         Specify whether the star field should be\n"
-		<< "                           rectangular (1) or circular (0). Default value: " << mif.rectangular << "\n"
-		<< "  -a,--approx              Specify whether terms for alpha_smooth should be\n"
-		<< "                           approximated (1) or exact (0). Default value: " << mif.approx << "\n"
-		<< "  -ss,--safety_scale       Specify the ratio of the size of the star field to\n"
-		<< "                           the radius of convergence for alpha_smooth.\n"
-		<< "                           Default value: " << mif.safety_scale << "\n"
-		<< "  -sf,--starfile           Specify the location of a binary file containing\n"
-		<< "                           values for num_stars, rectangular, corner,\n"
-		<< "                           theta_star, and the star positions and masses, in an\n"
-		<< "                           order as defined in this source code.\n"
-		<< "                           A whitespace delimited text file where each line\n"
-		<< "                           contains the x1 and x2 coordinates and the mass of a\n"
-		<< "                           microlens, in units where theta_star = 1, is also\n"
-		<< "                           accepted. If provided, this takes precedence for all\n"
-		<< "                           star information.\n"
-		<< "  -y1, --y1                Specify the y1 and y2 coordinates of the source, or\n"
-		<< "  -y2, --y2                a position that the source travels through.\n"
-		<< "                           Default value: " << mif.w0 << "\n"
-		<< "  -v1, --v1                Specify the y1 and y2 components of the source\n"
-		<< "  -v2, --v2                velocity.\n"
-		<< "                           Default value: " << mif.v << "\n"
-		<< "  -rs,--random_seed        Specify the random seed for star field generation.\n"
-		<< "                           A value of 0 is reserved for star input files.\n"
-		<< "  -ws,--write_stars        Specify whether to write stars (1) or not (0).\n"
-		<< "                           Default value: " << mif.write_stars << "\n"
-		<< "  -wm,--write_maps         Specify whether to write magnification maps (1) or\n"
-		<< "                           not (0). Default value: " << mif.write_maps << "\n"
-		<< "  -wp,--write_parities     Specify whether to write parity specific\n"
-		<< "                           magnification maps (1) or not (0). Default value: " << mif.write_parities << "\n"
-		<< "  -wh,--write_histograms   Specify whether to write histograms (1) or not (0).\n"
-		<< "                           Default value: " << mif.write_histograms << "\n"
-		<< "  -o,--outfile_prefix      Specify the prefix to be used in output file names.\n"
-		<< "                           Default value: " << mif.outfile_prefix << "\n";
+		<< "  -h,--help                 Show this help message.\n"
+		<< "  -v,--verbose              Specify verbosity of output from 0 (none) to 1, 2,\n"
+		<< "                            or 3 (low, medium, high). Default value: " << verbose << "\n"
+		<< "  -k,--kappa_tot            Specify the total convergence. Default value: " << mif.kappa_tot << "\n"
+		<< "  -y,--shear                Specify the shear. Default value: " << mif.shear << "\n"
+		<< "  -s,--smooth_fraction      Specify the fraction of convergence due to smoothly\n"
+		<< "                            distributed mass. Default value: " << smooth_fraction << "\n"
+		<< "  -ks,--kappa_star          Specify the convergence in point mass lenses. If\n"
+		<< "                            provided, this overrides any supplied value for the\n"
+		<< "                            smooth fraction. Default value: " << mif.kappa_star << "\n"
+		<< "  -t,--theta_star           Specify the size of the Einstein radius of a unit\n"
+		<< "                            mass point lens in arbitrary units.\n"
+		<< "                            Default value: " << mif.theta_star << "\n"
+		<< "  -mf,--mass_function       Specify the mass function to use for the point mass\n"
+		<< "                            lenses. Options are: equal, uniform, Salpeter,\n"
+		<< "                            Kroupa, and optical_depth. Default value: " << mif.mass_function_str << "\n"
+		<< "  -ms,--m_solar             Specify the solar mass in arbitrary units.\n"
+		<< "                            Default value: " << mif.m_solar << "\n"
+		<< "  -ml,--m_lower             Specify the lower mass cutoff in solar mass units.\n"
+		<< "                            Default value: " << mif.m_lower << "\n"
+		<< "  -mh,--m_upper             Specify the upper mass cutoff in solar mass units.\n"
+		<< "                            Default value: " << mif.m_upper << "\n"
+		<< "  -ll,--light_loss          Allowed average fraction of light lost due to\n"
+		<< "                            scatter by the microlenses in the large deflection\n"
+		<< "                            limit. Default value: " << mif.light_loss << "\n"
+		<< "  -r,--rectangular          Specify whether the star field should be\n"
+		<< "                            rectangular (1) or circular (0). Default value: " << mif.rectangular << "\n"
+		<< "  -a,--approx               Specify whether terms for alpha_smooth should be\n"
+		<< "                            approximated (1) or exact (0). Default value: " << mif.approx << "\n"
+		<< "  -ss,--safety_scale        Specify the ratio of the size of the star field to\n"
+		<< "                            the radius of convergence for alpha_smooth.\n"
+		<< "                            Default value: " << mif.safety_scale << "\n"
+		<< "  -sf,--starfile            Specify the location of a binary file containing\n"
+		<< "                            values for num_stars, rectangular, corner,\n"
+		<< "                            theta_star, and the star positions and masses, in\n"
+		<< "                            an order as defined in this source code.\n"
+		<< "                            A whitespace delimited text file where each line\n"
+		<< "                            contains the x1 and x2 coordinates and the mass of\n"
+		<< "                            a microlens, in units where theta_star = 1, is also\n"
+		<< "                            accepted. If provided, this takes precedence for\n"
+		<< "                            all star information.\n"
+		<< "  -y1, --y1                 Specify the y1 and y2 coordinates of the source, or\n"
+		<< "  -y2, --y2                 a position that the source travels through.\n"
+		<< "                            Default value: " << mif.w0 << "\n"
+		<< "  -v1, --v1                 Specify the y1 and y2 components of the source\n"
+		<< "  -v2, --v2                 velocity.\n"
+		<< "                            Default value: " << mif.v << "\n"
+		<< "  -rs,--random_seed         Specify the random seed for star field generation.\n"
+		<< "                            A value of 0 is reserved for star input files.\n"
+		<< "  -ws,--write_stars         Specify whether to write stars (1) or not (0).\n"
+		<< "                            Default value: " << mif.write_stars << "\n"
+		<< "  -wi,--write_images        Specify whether to write images positions (1) or\n"
+		<< "                            not (0). Default value: " << mif.write_images << "\n"
+		<< "  -wil,--write_image_line   Specify whether to write image line positions (1)\n"
+		<< "                            or not (0). Default value: " << mif.write_image_line << "\n"
+		<< "  -wm,                      Specify whether to write magnifications (1) or\n"
+		<< "   --write_magnifications   not (0). Default value: " << mif.write_magnifications << "\n"
+		<< "  -o,--outfile_prefix       Specify the prefix to be used in output file names.\n"
+		<< "                            Default value: " << mif.outfile_prefix << "\n";
 }
 
 
@@ -479,39 +480,39 @@ int main(int argc, char* argv[])
 				return -1;
 			}
 		}
-		else if (argv[i] == std::string("-wm") || argv[i] == std::string("--write_maps"))
+		else if (argv[i] == std::string("-wi") || argv[i] == std::string("--write_images"))
 		{
 			try
 			{
-				set_param("write_maps", mif.write_maps, std::stoi(cmdinput), verbose);
+				set_param("write_images", mif.write_images, std::stoi(cmdinput), verbose);
 			}
 			catch (...)
 			{
-				std::cerr << "Error. Invalid write_maps input.\n";
+				std::cerr << "Error. Invalid write_images input.\n";
 				return -1;
 			}
 		}
-		else if (argv[i] == std::string("-wp") || argv[i] == std::string("--write_parities"))
+		else if (argv[i] == std::string("-wil") || argv[i] == std::string("--write_image_line"))
 		{
 			try
 			{
-				set_param("write_parities", mif.write_parities, std::stoi(cmdinput), verbose);
+				set_param("write_image_line", mif.write_image_line, std::stoi(cmdinput), verbose);
 			}
 			catch (...)
 			{
-				std::cerr << "Error. Invalid write_parities input.\n";
+				std::cerr << "Error. Invalid write_image_line input.\n";
 				return -1;
 			}
 		}
-		else if (argv[i] == std::string("-wh") || argv[i] == std::string("--write_histograms"))
+		else if (argv[i] == std::string("-wh") || argv[i] == std::string("--write_magnifications"))
 		{
 			try
 			{
-				set_param("write_histograms", mif.write_histograms, std::stoi(cmdinput), verbose);
+				set_param("write_magnifications", mif.write_magnifications, std::stoi(cmdinput), verbose);
 			}
 			catch (...)
 			{
-				std::cerr << "Error. Invalid write_histograms input.\n";
+				std::cerr << "Error. Invalid write_magnifications input.\n";
 				return -1;
 			}
 		}
