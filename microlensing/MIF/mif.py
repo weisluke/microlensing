@@ -10,7 +10,7 @@ class MIF(object):
                  theta_star: float = None, mass_function: str = None, m_solar: float = None, m_lower: float = None, m_upper: float = None,
                  light_loss: float = None, rectangular: bool = None, approx: bool = None, safety_scale: float = None,
                  starfile: str = None, y1: float = None, y2: float = None, v1: float = None, v2: float = None, random_seed: int = None,
-                 write_stars: bool = False, write_images: bool = False, write_image_line: bool = False, write_magnifications: bool = False,
+                 write_stars: bool = False, write_images: bool = False, write_image_lines: bool = False, write_magnifications: bool = False,
                  outfile_prefix: str = None, verbose: int = 0):
         '''
         :param kappa_tot: total convergence
@@ -36,7 +36,7 @@ class MIF(object):
         :param random_seed: random seed for star field generation. A value of 0 is reserved for star input files
         :param write_stars: whether to write stars or not
         :param write_images: whether to write image positions or not
-        :param write_image_line: whether to write image line positions or not
+        :param write_image_lines: whether to write image line positions or not
         :param write_magnifications: whether to write magnifications or not
         :param outfile_prefix: prefix to be used in output file names
         :param verbose: verbosity level of messages. must be 0, 1, 2, or 3
@@ -76,7 +76,7 @@ class MIF(object):
             
         self.write_stars = write_stars
         self.write_images = write_images
-        self.write_image_line = write_image_line
+        self.write_image_lines = write_image_lines
         self.write_magnifications = write_magnifications
         
         self.outfile_prefix = outfile_prefix
@@ -307,13 +307,13 @@ class MIF(object):
             self.lib.set_write_images(self.obj, int(value))
 
     @property
-    def write_image_line(self):
-        return bool(self.lib.get_write_image_line(self.obj))
+    def write_image_lines(self):
+        return bool(self.lib.get_write_image_lines(self.obj))
     
-    @write_image_line.setter
-    def write_image_line(self, value):
+    @write_image_lines.setter
+    def write_image_lines(self, value):
         if value is not None:
-            self.lib.set_write_image_line(self.obj, int(value))
+            self.lib.set_write_image_lines(self.obj, int(value))
 
     @property
     def write_magnifications(self):

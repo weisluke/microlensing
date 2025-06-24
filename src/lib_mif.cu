@@ -34,7 +34,7 @@ extern "C"
     void set_random_seed(MIF<dtype> *self, int val)             {self->random_seed          = val;}
     void set_write_stars(MIF<dtype> *self, int val)             {self->write_stars          = val;}
     void set_write_images(MIF<dtype> *self, int val)            {self->write_images         = val;}
-    void set_write_image_line(MIF<dtype> *self, int val)        {self->write_image_line     = val;}
+    void set_write_image_lines(MIF<dtype> *self, int val)       {self->write_image_lines    = val;}
     void set_write_magnifications(MIF<dtype> *self, int val)    {self->write_magnifications = val;}
     void set_outfile_prefix(MIF<dtype> *self, const char* val)  {self->outfile_prefix       = val;}
 
@@ -58,7 +58,7 @@ extern "C"
     int get_random_seed(MIF<dtype> *self)                       {return self->random_seed;}
     int get_write_stars(MIF<dtype> *self)                       {return self->write_stars;}
     int get_write_images(MIF<dtype> *self)                      {return self->write_images;}
-    int get_write_image_line(MIF<dtype> *self)                  {return self->write_image_line;}
+    int get_write_image_lines(MIF<dtype> *self)                 {return self->write_image_lines;}
     int get_write_magnifications(MIF<dtype> *self)              {return self->write_magnifications;}
     const char* get_outfile_prefix(MIF<dtype> *self)            {return (self->outfile_prefix).c_str();}
 

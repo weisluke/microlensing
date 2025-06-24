@@ -63,7 +63,7 @@ public:
 	int random_seed = 0;
 	int write_stars = 1;
 	int write_images = 1;
-	int write_image_line = 0;
+	int write_image_lines = 0;
 	int write_magnifications = 1;
 	std::string outfile_prefix = "./";
 
@@ -342,9 +342,9 @@ private:
 			return false;
 		}
 
-		if (write_image_line != 0 && write_image_line != 1)
+		if (write_image_lines != 0 && write_image_lines != 1)
 		{
-			std::cerr << "Error. write_image_line must be 1 (true) or 0 (false).\n";
+			std::cerr << "Error. write_image_lines must be 1 (true) or 0 (false).\n";
 			return false;
 		}
 
@@ -871,7 +871,7 @@ private:
         thrust::universal_vector<int> use_star(num_stars, 1);
         set_threads(threads, 256);
         set_blocks(threads, blocks, num_stars);
-		if (write_image_line)
+		if (write_image_lines)
 		{
         	use_star_kernel<T> <<<blocks, threads>>> (stars, num_stars, kappa_tot, shear, w0, v, max_r, &use_star[0]);
         	if (cuda_error("use_star_kernel", true, __FILE__, __LINE__)) return false;
@@ -1221,7 +1221,7 @@ private:
 		outfile << "tree_levels " << tree_levels << "\n";
 		outfile.close();
 		print_verbose("Done writing parameter info to file " << fname << "\n", verbose, 1);
-		print_verbose("\n", verbose * (write_stars || write_images || write_image_line), 2);
+		print_verbose("\n", verbose * (write_stars || write_images || write_image_lines), 2);
 
 
 		if (write_stars)
@@ -1234,7 +1234,7 @@ private:
 				return false;
 			}
 			print_verbose("Done writing star info to file " << fname << "\n", verbose, 1);
-			print_verbose("\n", verbose * (write_images || write_image_line), 2);
+			print_verbose("\n", verbose * (write_images || write_image_lines), 2);
 		}
 
 		if (write_images)
@@ -1247,39 +1247,39 @@ private:
 				return false;
 			}
 			print_verbose("Done writing point images to file " << fname << "\n", verbose, 1);
-			print_verbose("\n", verbose * write_image_line, 2);
+			print_verbose("\n", verbose * write_image_lines, 2);
 		}
 
-		if (write_image_line)
+		if (write_image_lines)
 		{
-			print_verbose("Writing image line...\n", verbose, 2);
-			fname = outfile_prefix + "mif_image_line" + outfile_type;
+			print_verbose("Writing image lines...\n", verbose, 2);
+			fname = outfile_prefix + "mif_image_lines" + outfile_type;
 			if (!write_ragged_array<Complex<T>>(image_lines, image_lines_lengths, fname))
 			{
-				std::cerr << "Error. Unable to write images to file " << fname << "\n";
+				std::cerr << "Error. Unable to write image lines to file " << fname << "\n";
 				return false;
 			}
-			print_verbose("Done writing image line to file " << fname << "\n", verbose, 1);
+			print_verbose("Done writing image lines to file " << fname << "\n", verbose, 1);
 
-			print_verbose("Writing source line...\n", verbose, 2);
+			print_verbose("Writing source lines...\n", verbose, 2);
 			fname = outfile_prefix + "mif_source_lines" + outfile_type;
 			if (!write_ragged_array<Complex<T>>(source_lines, image_lines_lengths, fname))
 			{
-				std::cerr << "Error. Unable to write sources to file " << fname << "\n";
+				std::cerr << "Error. Unable to write source lines to file " << fname << "\n";
 				return false;
 			}
-			print_verbose("Done writing source line to file " << fname << "\n", verbose, 1);
+			print_verbose("Done writing source lines to file " << fname << "\n", verbose, 1);
 
 			if (write_magnifications)
 			{
-				print_verbose("Writing image line magnifications...\n", verbose, 2);
-				fname = outfile_prefix + "mif_image_line_magnifications" + outfile_type;
+				print_verbose("Writing image lines magnifications...\n", verbose, 2);
+				fname = outfile_prefix + "mif_image_lines_magnifications" + outfile_type;
 				if (!write_ragged_array<T>(image_lines_mags, image_lines_lengths, fname))
 				{
 					std::cerr << "Error. Unable to write magnifications to file " << fname << "\n";
 					return false;
 				}
-				print_verbose("Done writing image line magnifications to file " << fname << "\n", verbose, 1);
+				print_verbose("Done writing image lines magnifications to file " << fname << "\n", verbose, 1);
 			}
 		}
 
