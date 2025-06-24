@@ -485,7 +485,7 @@ private:
 				&& taylor_smooth <= MAX_TAYLOR_SMOOTH)
 		{
 			taylor_smooth += 2;
-		}		
+		}
 		set_param("taylor_smooth", taylor_smooth, taylor_smooth, verbose * (rectangular && approx), verbose < 3);
 		if (rectangular && taylor_smooth > MAX_TAYLOR_SMOOTH)
 		{
