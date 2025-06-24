@@ -1034,7 +1034,7 @@ private:
         for (int i = 0; i < tmp_image_line.size(); i++)
         {
             int start = std::reduce(&num_images[0], &num_images[i], 0);
-            thrust::copy(tmp_image_line[i].begin(), tmp_image_line[i].end(), &images[start]);
+            thrust::copy(tmp_image_line[i].begin(), tmp_image_line[i].end(), &image_line[start]);
         }
         t_elapsed = stopwatch.stop();
         print_verbose("Done copying image lines. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 2);
@@ -1077,8 +1077,8 @@ private:
 
 			for (int j = 0; j < num_images[i] - 1; j++)
 			{
-				z1 = images[start + j];
-				z2 = images[start + j + 1];
+				z1 = image_line[start + j];
+				z2 = image_line[start + j + 1];
 				dz = (z2 - z1);
 
 				node = treenode::get_nearest_node(z2, tree[0]);
