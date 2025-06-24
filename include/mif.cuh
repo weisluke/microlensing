@@ -13,6 +13,7 @@
 #include "star.cuh"
 #include "stopwatch.hpp"
 #include "tree_node.cuh"
+#include "util/math_util.cuh"
 #include "util/util.cuh"
 
 #include <curand_kernel.h>
@@ -1063,6 +1064,50 @@ private:
 
 	bool find_point_images(int verbose)
 	{
+		print_verbose("Finding point images...\n", verbose, 1);
+
+		Complex<T> z1, z2, dz;
+		T f1, f2;
+		TreeNode<T>* node;
+		
+        stopwatch.start();
+		for (int i =0; i < num_images.size(); i++)
+		{
+			int start = std::reduce(&num_images[0], &num_images[i], 0);
+
+			for (int j = 0; j < num_images[i] - 1; j++)
+			{
+				z1 = images[start + j];
+				z2 = images[start + j + 1];
+				dz = (z2 - z1);
+
+				node = treenode::get_nearest_node(z2, tree[0]);
+				f2 = parametric_image_line(z2, kappa_tot, shear, theta_star, stars, kappa_star, node,
+										   rectangular, corner, approx, taylor_smooth, w0, v * Complex<T>(0, 1));
+				node = treenode::get_nearest_node(z1, tree[0]);
+				f1 = parametric_image_line(z1, kappa_tot, shear, theta_star, stars, kappa_star, node,
+										   rectangular, corner, approx, taylor_smooth, w0, v);
+				
+				//if we are crossing a star, the sign changes
+				bool is_star = (is_near_star(z1, stars, tree[0], dz) && is_near_star(z2, stars, tree[0], dz));
+				
+				if (sgn(f1) != sgn(f2) && !is_star)
+				{
+					T dt = -f1.re / (f2.re - f1.re);
+					point_images.push_back(z1 + dz * dt);
+				}
+
+			}
+		}
+		print_verbose("Number of point images: " << point_images.size() << "\n", verbose, 2);
+		for (int i = 0; i < point_images.size(); i++)
+		{
+			point_images[i] = find_point_image(point_images[i], kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+					rectangular, corner, approx, taylor_smooth, w0, v);
+		}
+        t_elapsed = stopwatch.stop();
+		print_verbose("Done finding point images.\n\n", verbose, 1);
+		
 		return true;
 	}
 
