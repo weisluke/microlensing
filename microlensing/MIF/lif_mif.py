@@ -4,12 +4,12 @@ from importlib.resources import files
 
 
 if platform == 'linux':
-    lib = ctypes.CDLL(files('microlensing.lib').joinpath('lib_ipm_double.so'))
+    lib = ctypes.CDLL(files('microlensing.lib').joinpath('lib_mif.so'))
 else:
-    raise FileNotFoundError("IPM library for non-Linux platforms not yet available")
+    raise FileNotFoundError("MIF library for non-Linux platforms not yet available")
 
-lib.IPM_init.argtypes = []
-lib.IPM_init.restype = ctypes.c_void_p
+lib.MIF_init.argtypes = []
+lib.MIF_init.restype = ctypes.c_void_p
 
 lib.set_kappa_tot.argtypes = [ctypes.c_void_p, ctypes.c_double]
 lib.set_kappa_tot.restype = ctypes.c_void_p
@@ -137,5 +137,5 @@ lib.run.restype = ctypes.c_bool
 lib.save.argtypes = [ctypes.c_void_p, ctypes.c_int]
 lib.save.restype = ctypes.c_bool
 
-lib.IPM_delete.argtypes = [ctypes.c_void_p]
-lib.IPM_delete.restype = None
+lib.MIF_delete.argtypes = [ctypes.c_void_p]
+lib.MIF_delete.restype = None

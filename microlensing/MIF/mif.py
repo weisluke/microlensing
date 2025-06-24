@@ -1,4 +1,3 @@
-from . import lib_ipm
 from . import lif_mif
 from microlensing.Stars.stars import Stars
 
@@ -6,7 +5,7 @@ import numpy as np
 import matplotlib.axes
 
 
-class IPM(object):
+class MIF(object):
     def __init__(self, kappa_tot: float = None, shear: float = None, smooth_fraction: float = None, kappa_star: float = None, 
                  theta_star: float = None, mass_function: str = None, m_solar: float = None, m_lower: float = None, m_upper: float = None,
                  light_loss: float = None, rectangular: bool = None, approx: bool = None, safety_scale: float = None,
@@ -49,7 +48,7 @@ class IPM(object):
         '''
         self.lib = lif_mif.lib
 
-        self.obj = self.lib.IPM_init()
+        self.obj = self.lib.MIF_init()
         self.verbose = verbose
 
         self.kappa_tot = kappa_tot
@@ -92,7 +91,7 @@ class IPM(object):
         self.outfile_prefix = outfile_prefix
 
     def __del__(self):
-        self.lib.IPM_delete(self.obj)
+        self.lib.MIF_delete(self.obj)
         
     @property
     def kappa_tot(self):
@@ -399,7 +398,7 @@ class IPM(object):
 
     def run(self):
         if not self.lib.run(self.obj, self.verbose):
-            raise Exception("Error running IPM")
+            raise Exception("Error running MIF")
         
         self.magnifications = np.ctypeslib.as_array(self.lib.get_pixels(self.obj), 
                                                     shape=(self.num_pixels_y2,
@@ -441,7 +440,7 @@ class IPM(object):
     
     def save(self):
         if not self.lib.save(self.obj, self.verbose):
-            raise Exception("Error saving IPM")
+            raise Exception("Error saving MIF")
 
     def plot(self, ax: matplotlib.axes.Axes, **kwargs):
         if 'vmin' not in kwargs.keys():
