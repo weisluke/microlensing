@@ -1043,7 +1043,7 @@ private:
             }
         }
         t_elapsed = stopwatch.stop();
-        print_verbose("Done finding secondary image loops. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 2);
+        print_verbose("Done finding secondary image loops. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 2);
 		/******************************************************************************
 		END finding secondary image loops
 		******************************************************************************/
@@ -1073,7 +1073,7 @@ private:
             thrust::copy(tmp_image_line[i].begin(), tmp_image_line[i].end(), &image_line[start]);
         }
         t_elapsed = stopwatch.stop();
-        print_verbose("Done copying image lines. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 2);
+        print_verbose("Done copying image lines. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 2);
 
 
         set_threads(threads, 256);
