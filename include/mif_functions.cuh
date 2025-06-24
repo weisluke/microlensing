@@ -113,7 +113,7 @@ __host__ __device__ T parametric_image_line(Complex<T> z, T kappa, T gamma, T th
     
 	v *= Complex<T>(0, 1); //rotate velocity vector
 	Complex<T> res = (w - w0) * v.conj(); //dot product of the complex vectors
-	return re.re; 
+	return res.re; 
 }
 
 /******************************************************************************
@@ -509,7 +509,7 @@ __host__ __device__ Complex<T> find_critical_curve_image(Complex<T> z, T kappa, 
         node = treenode::get_nearest_node(z, root);
 
         f = parametric_image_line<T>(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth, w0, v);
-        mu = microlensing::inv_mu<T>(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
+        inv_mu = microlensing::inv_mu<T>(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
 
         /******************************************************************************
         if mapping is within 10^-9 * theta_star of desired source track, return
