@@ -102,7 +102,11 @@ private:
 	T mean_mass2_ln_mass_actual;
 
 	T mu_ave;
-	Complex<T> center_x;
+	/******************************************************************************
+	maximum source plane size of the region of images visible for a macro-image
+	which on average loses no more than the desired amount of flux
+	******************************************************************************/
+	T max_r;
 	Complex<T> corner;
 	int taylor_smooth;
 
@@ -392,10 +396,9 @@ private:
 		average magnification of the system
 		******************************************************************************/
 		set_param("mu_ave", mu_ave, 1 / ((1 - kappa_tot) * (1 - kappa_tot) - shear * shear), verbose);
+		
+		max_r = theta_star * std::sqrt(kappa_star * mean_mass2 / (mean_mass * light_loss));
 
-
-		center_x = Complex<T>(center_y.re / (1 - kappa_tot + shear), center_y.im / (1 - kappa_tot - shear));
-		set_param("center_x", center_x, center_x, verbose);
 
 		/******************************************************************************
 		if stars are not drawn from external file, calculate final number of stars to
@@ -403,7 +406,8 @@ private:
 		******************************************************************************/
 		if (starfile == "")
 		{
-			corner = Complex<T>(std::abs(center_x.re) + half_length_x.re, std::abs(center_x.im) + half_length_x.im);
+			corner = Complex<T>((std::abs(w0.re) + max_r) / std::abs(1 - kappa_tot + shear), 
+								(std::abs(w0.im) + max_r) / std::abs(1 - kappa_tot - shear));
 
 			if (rectangular)
 			{
@@ -437,7 +441,8 @@ private:
 		******************************************************************************/
 		else
 		{
-			Complex<T> tmp_corner = Complex<T>(std::abs(center_x.re) + half_length_x.re, std::abs(center_x.im) + half_length_x.im);
+			Complex<T> tmp_corner = Complex<T>((std::abs(w0.re) + max_r) / std::abs(1 - kappa_tot + shear), 
+											   (std::abs(w0.im) + max_r) / std::abs(1 - kappa_tot - shear));
 
 			if (!rectangular)
 			{
@@ -450,15 +455,14 @@ private:
 				(!rectangular && (corner.abs() < safety_scale * tmp_corner.abs()))
 				)
 			{
-				std::cerr << "Error. The provided star field is not large enough to cover the desired source plane region.\n";
+				std::cerr << "Error. The provided star field is not large enough to cover the necessary image plane region.\n";
 				std::cerr << "Try decreasing the safety_scale, or providing a larger field of stars.\n";
 				return false;
 			}
 		}
 
-		alpha_error = std::min(half_length_y.re / (10 * num_pixels_y.re), 
-			half_length_y.im / (10 * num_pixels_y.im)); //error is a circle of radius 1/10 of smallest pixel scale
-		set_param("alpha_error", alpha_error, alpha_error, verbose, !(rectangular && approx) && verbose < 3);
+		//error is 10^-7 einstein radii
+		set_param("alpha_error", alpha_error, theta_star * 0.0000001, verbose, !(rectangular && approx) && verbose < 3);
 
 		taylor_smooth = 1;
 		while ((kappa_star * std::numbers::inv_pi_v<T> * 4 / (taylor_smooth + 1) * corner.abs() * (safety_scale + 1) / (safety_scale - 1)
@@ -1087,8 +1091,6 @@ private:
 		outfile << "safety_scale " << safety_scale << "\n";
 		outfile << "center_y1 " << center_y.re << "\n";
 		outfile << "center_y2 " << center_y.im << "\n";
-		outfile << "center_x1 " << center_x.re << "\n";
-		outfile << "center_x2 " << center_x.im << "\n";
 		outfile << "alpha_error " << alpha_error << "\n";
 		outfile << "expansion_order " << expansion_order << "\n";
 		outfile << "root_half_length " << root_half_length << "\n";
