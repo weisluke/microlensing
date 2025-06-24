@@ -9,8 +9,7 @@ class MIF(object):
     def __init__(self, kappa_tot: float = None, shear: float = None, smooth_fraction: float = None, kappa_star: float = None, 
                  theta_star: float = None, mass_function: str = None, m_solar: float = None, m_lower: float = None, m_upper: float = None,
                  light_loss: float = None, rectangular: bool = None, approx: bool = None, safety_scale: float = None,
-                 starfile: str = None, center_y1: float = None, center_y2: float = None, half_length_y1: float = None, half_length_y2: float = None,
-                 num_pixels_y1: int = None, num_pixels_y2: int = None, num_rays_y: int = None, random_seed: int = None,
+                 starfile: str = None, center_y1: float = None, center_y2: float = None, random_seed: int = None,
                  write_stars: bool = False, write_maps: bool = False, write_parities: bool = False, write_histograms: bool = False,
                  outfile_prefix: str = None, verbose: int = 0):
         '''
@@ -32,11 +31,6 @@ class MIF(object):
                          theta_star = 1, is also accepted. If provided, this takes precedence for all star information
         :param center_y1: y1 coordinate of the center of the magnification map
         :param center_y2: y2 coordinate of the center of the magnification map
-        :param half_length_y1: y1 extent of the half-length of the magnification map
-        :param half_length_y2: y2 extent of the half_length of the magnification map
-        :param num_pixels_y1: number of pixels for the y1 axis
-        :param num_pixels_y2: number of pixels for the y2 axis
-        :param num_rays_y: average number of rays per pixel in the absence of lensing
         :param random_seed: random seed for star field generation. A value of 0 is reserved for star input files
         :param write_stars: whether to write stars or not
         :param write_maps: whether to write magnification maps or not
@@ -76,12 +70,6 @@ class MIF(object):
         
         self.center_y1 = center_y1
         self.center_y2 = center_y2
-        self.half_length_y1 = half_length_y1
-        self.half_length_y2 = half_length_y2
-        self.num_pixels_y1 = num_pixels_y1
-        self.num_pixels_y2 = num_pixels_y2
-        
-        self.num_rays_y = num_rays_y
             
         self.write_stars = write_stars
         self.write_maps = write_maps
@@ -267,74 +255,6 @@ class MIF(object):
         return (self.center_y1, self.center_y2)
 
     @property
-    def half_length_y1(self):
-        return self.lib.get_half_length_y1(self.obj)
-    
-    @half_length_y1.setter
-    def half_length_y1(self, value):
-        if value is not None:
-            if value <= 0:
-                raise ValueError("half_length_y1 must be > 0")
-            self.lib.set_half_length_y1(self.obj, value)
-
-    @property
-    def half_length_y2(self):
-        return self.lib.get_half_length_y2(self.obj)
-    
-    @half_length_y2.setter
-    def half_length_y2(self, value):
-        if value is not None:
-            if value <= 0:
-                raise ValueError("half_length_y2 must be > 0")
-            self.lib.set_half_length_y2(self.obj, value)
-
-    @property
-    def half_length(self):
-        return (self.half_length_y1, self.half_length_y2)
-
-    @property
-    def num_pixels_y1(self):
-        return self.lib.get_num_pixels_y1(self.obj)
-    
-    @num_pixels_y1.setter
-    def num_pixels_y1(self, value):
-        if value is not None:
-            if value < 1:
-                raise ValueError("num_pixels_y1 must be >= 1")
-            self.lib.set_num_pixels_y1(self.obj, value)
-
-    @property
-    def num_pixels_y2(self):
-        return self.lib.get_num_pixels_y2(self.obj)
-    
-    @num_pixels_y2.setter
-    def num_pixels_y2(self, value):
-        if value is not None:
-            if value < 1:
-                raise ValueError("num_pixels_y2 must be >= 1")
-            self.lib.set_num_pixels_y2(self.obj, value)
-
-    @property
-    def num_pixels(self):
-        return (self.num_pixels_y1, self.num_pixels_y2)
-
-    @property
-    def pixel_scales(self):
-        return (2 * self.half_length[0] / self.num_pixels[0],
-                2 * self.half_length[1] / self.num_pixels[1])
-
-    @property
-    def num_rays_y(self):
-        return self.lib.get_num_rays_y(self.obj)
-    
-    @num_rays_y.setter
-    def num_rays_y(self, value):
-        if value is not None:
-            if value < 1:
-                raise ValueError("num_rays_y must be >= 1")
-            self.lib.set_num_rays_y(self.obj, value)
-
-    @property
     def random_seed(self):
         return self.lib.get_random_seed(self.obj)
     
@@ -399,80 +319,14 @@ class MIF(object):
     def run(self):
         if not self.lib.run(self.obj, self.verbose):
             raise Exception("Error running MIF")
-        
-        self.magnifications = np.ctypeslib.as_array(self.lib.get_pixels(self.obj), 
-                                                    shape=(self.num_pixels_y2,
-                                                           self.num_pixels_y1)).copy()
-        if self.write_parities:
-            self.magnifications_minima = np.ctypeslib.as_array(self.lib.get_pixels_minima(self.obj), 
-                                                               shape=(self.num_pixels_y2,
-                                                                      self.num_pixels_y1)).copy()
-            self.magnifications_saddles = np.ctypeslib.as_array(self.lib.get_pixels_saddles(self.obj), 
-                                                                shape=(self.num_pixels_y2,
-                                                                       self.num_pixels_y1)).copy()
-        else:
-            self.magnifications_minima = None
-            self.magnifications_saddles = None
 
         self.stars = Stars(np.ctypeslib.as_array(self.lib.get_stars(self.obj),
                                                  shape=(self.num_stars, 3)).copy(),
                            self.rectangular, self.corner, self.theta_star)
-        
-    @property
-    def t_shoot_cells(self):
-        return self.lib.get_t_shoot_cells(self.obj)
-
-    @property
-    def magnitudes(self):
-        return -2.5 * np.log10(self.magnifications / np.abs(self.mu_ave))
-    
-    @property
-    def magnitudes_minima(self):
-        if self.magnifications_minima is None:
-            raise ValueError("magnifications_minima is None")
-        return -2.5 * np.log10(self.magnifications_minima / np.abs(self.mu_ave))
-    
-    @property
-    def magnitudes_saddles(self):
-        if self.magnifications_saddles is None:
-            raise ValueError("magnifications_saddles is None")
-        return -2.5 * np.log10(self.magnifications_saddles / np.abs(self.mu_ave))
     
     def save(self):
         if not self.lib.save(self.obj, self.verbose):
             raise Exception("Error saving MIF")
 
     def plot(self, ax: matplotlib.axes.Axes, **kwargs):
-        if 'vmin' not in kwargs.keys():
-            kwargs['vmin'] = np.percentile(self.magnitudes.ravel(), 2.5)
-        if 'vmax' not in kwargs.keys():
-            kwargs['vmax'] = np.percentile(self.magnitudes.ravel(), 97.5)
-        if 'cmap' not in kwargs.keys():
-            kwargs['cmap'] = 'viridis_r'
-
-        extent = [(self.center[0] - self.half_length[0]),
-                  (self.center[0] + self.half_length[0]),
-                  (self.center[1] - self.half_length[1]),
-                  (self.center[1] + self.half_length[1])]
-
-        img = ax.imshow(self.magnitudes, extent=extent, **kwargs)
-        cbar = ax.get_figure().colorbar(img, label='microlensing $\\Delta m$ (magnitudes)')
-        cbar.ax.invert_yaxis()
-
-        if self.theta_star == 1:
-            ax.set_xlabel('$y_1 / \\theta_★$')
-            ax.set_ylabel('$y_2 / \\theta_★$')
-        else:
-            ax.set_xlabel('$y_1$')
-            ax.set_ylabel('$y_2$')
-
-    def plot_hist(self, ax: matplotlib.axes.Axes, bins=None, **kwargs):
-        if bins is None:
-            vmin, vmax = (np.min(self.magnitudes), np.max(self.magnitudes))
-            bins = np.arange(vmin - 0.01, vmax + 0.01, 0.01)
-
-        ax.hist(self.magnitudes.ravel(), bins=bins, density=True, **kwargs)
-
-        ax.set_xlabel('microlensing $\\Delta m$ (magnitudes)')
-        ax.set_ylabel('p($\\Delta m$)')
-        ax.invert_xaxis()
+        pass

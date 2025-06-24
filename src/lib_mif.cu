@@ -29,11 +29,6 @@ extern "C"
     void set_starfile(MIF<dtype> *self, const char* val)        {self->starfile             = val;}
     void set_center_y1(MIF<dtype> *self, dtype val)             {self->center_y.re          = val;}
     void set_center_y2(MIF<dtype> *self, dtype val)             {self->center_y.im          = val;}
-    void set_half_length_y1(MIF<dtype> *self, dtype val)        {self->half_length_y.re     = val;}
-    void set_half_length_y2(MIF<dtype> *self, dtype val)        {self->half_length_y.im     = val;}
-    void set_num_pixels_y1(MIF<dtype> *self, int val)           {self->num_pixels_y.re      = val;}
-    void set_num_pixels_y2(MIF<dtype> *self, int val)           {self->num_pixels_y.im      = val;}
-    void set_num_rays_y(MIF<dtype> *self, int val)              {self->num_rays_y           = val;}
     void set_random_seed(MIF<dtype> *self, int val)             {self->random_seed          = val;}
     void set_write_stars(MIF<dtype> *self, int val)             {self->write_stars          = val;}
     void set_write_maps(MIF<dtype> *self, int val)              {self->write_maps           = val;}
@@ -56,11 +51,6 @@ extern "C"
     const char* get_starfile(MIF<dtype> *self)                  {return (self->starfile).c_str();}
     dtype get_center_y1(MIF<dtype> *self)                       {return self->center_y.re;}
     dtype get_center_y2(MIF<dtype> *self)                       {return self->center_y.im;}
-    dtype get_half_length_y1(MIF<dtype> *self)                  {return self->half_length_y.re;}
-    dtype get_half_length_y2(MIF<dtype> *self)                  {return self->half_length_y.im;}
-    int get_num_pixels_y1(MIF<dtype> *self)                     {return self->num_pixels_y.re;}
-    int get_num_pixels_y2(MIF<dtype> *self)                     {return self->num_pixels_y.im;}
-    int get_num_rays_y(MIF<dtype> *self)                        {return self->num_rays_y;}
     int get_random_seed(MIF<dtype> *self)                       {return self->random_seed;}
     int get_write_stars(MIF<dtype> *self)                       {return self->write_stars;}
     int get_write_maps(MIF<dtype> *self)                        {return self->write_maps;}
@@ -72,10 +62,6 @@ extern "C"
     dtype get_corner_x1(MIF<dtype> *self)                       {return self->get_corner().re;}
     dtype get_corner_x2(MIF<dtype> *self)                       {return self->get_corner().im;}
     dtype* get_stars(MIF<dtype> *self)                          {return &(self->get_stars()[0].position.re);}
-    dtype* get_pixels(MIF<dtype> *self)                         {return self->get_pixels();}
-    dtype* get_pixels_minima(MIF<dtype> *self)                  {return self->get_pixels_minima();}
-    dtype* get_pixels_saddles(MIF<dtype> *self)                 {return self->get_pixels_saddles();}
-    double get_t_shoot_cells(MIF<dtype> *self)                  {return self->get_t_shoot_cells();}
 
     bool run(MIF<dtype> *self, int verbose)                     {return self->run(verbose);}
     bool save(MIF<dtype> *self, int verbose)                    {return self->save(verbose);}

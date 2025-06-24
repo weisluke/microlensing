@@ -53,12 +53,9 @@ public:
 	T light_loss = static_cast<T>(0.001); //average fraction of light lost due to scatter by the microlenses in the large deflection angle limit
 	int rectangular = 0; //whether star field is rectangular or circular
 	int approx = 1; //whether terms for alpha_smooth are exact or approximate
-	T safety_scale = static_cast<T>(1.37); //ratio of the size of the star field to the size of the shooting region
+	T safety_scale = static_cast<T>(1.37); //ratio of the size of the star field to the radius of convergence for alpha_smooth
 	std::string starfile = "";
 	Complex<T> center_y = Complex<T>();
-	Complex<T> half_length_y = Complex<T>(5, 5);
-	Complex<int> num_pixels_y = Complex<int>(1000, 1000);
-	int num_rays_y = 1; //number density of rays per pixel in the source plane
 	int random_seed = 0;
 	int write_stars = 1;
 	int write_maps = 1;
@@ -86,7 +83,6 @@ private:
 	******************************************************************************/
 	Stopwatch stopwatch;
 	double t_elapsed;
-	double t_shoot_cells;
 
 	/******************************************************************************
 	derived variables
@@ -105,11 +101,7 @@ private:
 	T mean_mass2_ln_mass_actual;
 
 	T mu_ave;
-	T num_rays_x; //number density of rays per unit area in the image plane
-	Complex<T> ray_half_sep; //distance from center of cell to corner
 	Complex<T> center_x;
-	Complex<T> half_length_x;
-	Complex<int> num_ray_threads; //number of threads in x1 and x2 directions 
 	Complex<T> corner;
 	int taylor_smooth;
 
@@ -130,24 +122,6 @@ private:
 	star<T>* temp_stars = nullptr;
 
 	int* binomial_coeffs = nullptr;
-
-	T* pixels = nullptr;
-	T* pixels_minima = nullptr;
-	T* pixels_saddles = nullptr;
-
-	int min_mag;
-	int max_mag;
-	int histogram_length;
-	int* histogram = nullptr;
-	int* histogram_minima = nullptr;
-	int* histogram_saddles = nullptr;
-
-	int min_log_mag;
-	int max_log_mag;
-	int log_histogram_length;
-	int* log_histogram = nullptr;
-	int* log_histogram_minima = nullptr;
-	int* log_histogram_saddles = nullptr;
 
 
 
@@ -221,42 +195,6 @@ private:
 		if (return_on_error && cuda_error("cudaFree(*binomial_coeffs)", false, __FILE__, __LINE__)) return false;
 		binomial_coeffs = nullptr;
 		
-		cudaFree(pixels);
-		if (return_on_error && cuda_error("cudaFree(*pixels)", false, __FILE__, __LINE__)) return false;
-		pixels = nullptr;
-		
-		cudaFree(pixels_minima);
-		if (return_on_error && cuda_error("cudaFree(*pixels_minima)", false, __FILE__, __LINE__)) return false;
-		pixels_minima = nullptr;
-		
-		cudaFree(pixels_saddles);
-		if (return_on_error && cuda_error("cudaFree(*pixels_saddles)", false, __FILE__, __LINE__)) return false;
-		pixels_saddles = nullptr;
-		
-		cudaFree(histogram);
-		if (return_on_error && cuda_error("cudaFree(*histogram)", false, __FILE__, __LINE__)) return false;
-		histogram = nullptr;
-		
-		cudaFree(histogram_minima);
-		if (return_on_error && cuda_error("cudaFree(*histogram_minima)", false, __FILE__, __LINE__)) return false;
-		histogram_minima = nullptr;
-		
-		cudaFree(histogram_saddles);
-		if (return_on_error && cuda_error("cudaFree(*histogram_saddles)", false, __FILE__, __LINE__)) return false;
-		histogram_saddles = nullptr;
-		
-		cudaFree(log_histogram);
-		if (return_on_error && cuda_error("cudaFree(*log_histogram)", false, __FILE__, __LINE__)) return false;
-		log_histogram = nullptr;
-		
-		cudaFree(log_histogram_minima);
-		if (return_on_error && cuda_error("cudaFree(*log_histogram_minima)", false, __FILE__, __LINE__)) return false;
-		log_histogram_minima = nullptr;
-		
-		cudaFree(log_histogram_saddles);
-		if (return_on_error && cuda_error("cudaFree(*log_histogram_saddles)", false, __FILE__, __LINE__)) return false;
-		log_histogram_saddles = nullptr;
-
 		for	(int i = 0; i < tree.size(); i++) //for every level in the tree, free the memory for the nodes
 		{
 			cudaFree(tree[i]);
@@ -352,24 +290,6 @@ private:
 		if (safety_scale < 1.1)
 		{
 			std::cerr << "Error. safety_scale must be >= 1.1\n";
-			return false;
-		}
-
-		if (half_length_y.re < std::numeric_limits<T>::min() || half_length_y.im < std::numeric_limits<T>::min())
-		{
-			std::cerr << "Error. half_length_y1 and half_length_y2 must both be >= " << std::numeric_limits<T>::min() << "\n";
-			return false;
-		}
-
-		if (num_pixels_y.re < 1 || num_pixels_y.im < 1)
-		{
-			std::cerr << "Error. num_pixels_y1 and num_pixels_y2 must both be integers > 0\n";
-			return false;
-		}
-
-		if (num_rays_y < 1)
-		{
-			std::cerr << "Error. num_rays_y must be an integer > 0\n";
 			return false;
 		}
 
@@ -472,36 +392,6 @@ private:
 		******************************************************************************/
 		set_param("mu_ave", mu_ave, 1 / ((1 - kappa_tot) * (1 - kappa_tot) - shear * shear), verbose);
 
-		/******************************************************************************
-		number density of rays in the lens plane
-		******************************************************************************/
-		set_param("num_rays_x", num_rays_x,
-			1.0 * num_rays_y * num_pixels_y.re * num_pixels_y.im / (2 * half_length_y.re * 2 * half_length_y.im),
-			verbose);
-
-		/******************************************************************************
-		average area covered by one ray is 1 / number density
-		account for potential rectangular pixels and use half_length
-		******************************************************************************/
-		ray_half_sep = Complex<T>(std::sqrt(half_length_y.re / half_length_y.im * num_pixels_y.im / num_pixels_y.re),
-							 std::sqrt(half_length_y.im / half_length_y.re * num_pixels_y.re / num_pixels_y.im));
-		ray_half_sep /= (2 * std::sqrt(num_rays_x));
-		set_param("ray_half_sep", ray_half_sep, ray_half_sep, verbose);
-
-		/******************************************************************************
-		shooting region is greater than outer boundary for macro-mapping by the size of
-		the region of images visible for a macro-image which on average loses no more
-		than the desired amount of flux
-		******************************************************************************/
-		half_length_x = half_length_y + theta_star * std::sqrt(kappa_star * mean_mass2 / (mean_mass * light_loss)) * Complex<T>(1, 1);
-		half_length_x = Complex<T>(half_length_x.re / std::abs(1 - kappa_tot + shear), half_length_x.im / std::abs(1 - kappa_tot - shear));
-		/******************************************************************************
-		make shooting region a multiple of the ray separation
-		******************************************************************************/
-		num_ray_threads = Complex<int>(half_length_x.re / (2 * ray_half_sep.re), half_length_x.im / (2 * ray_half_sep.im)) + Complex<int>(1, 1);
-		half_length_x = Complex<T>(2 * ray_half_sep.re * num_ray_threads.re, 2 * ray_half_sep.im * num_ray_threads.im);
-		set_param("half_length_x", half_length_x, half_length_x, verbose);
-		set_param("num_ray_threads", num_ray_threads, 2 * num_ray_threads, verbose);
 
 		center_x = Complex<T>(center_y.re / (1 - kappa_tot + shear), center_y.im / (1 - kappa_tot - shear));
 		set_param("center_x", center_x, center_x, verbose);
@@ -586,7 +476,7 @@ private:
 				&& taylor_smooth <= MAX_TAYLOR_SMOOTH)
 		{
 			taylor_smooth += 2;
-		}		
+		}
 		set_param("taylor_smooth", taylor_smooth, taylor_smooth, verbose * (rectangular && approx), verbose < 3);
 		if (rectangular && taylor_smooth > MAX_TAYLOR_SMOOTH)
 		{
@@ -624,38 +514,8 @@ private:
 		cudaMallocManaged(&binomial_coeffs, (2 * treenode::MAX_EXPANSION_ORDER * (2 * treenode::MAX_EXPANSION_ORDER + 3) / 2 + 1) * sizeof(int));
 		if (cuda_error("cudaMallocManaged(*binomial_coeffs)", false, __FILE__, __LINE__)) return false;
 
-		/******************************************************************************
-		allocate memory for pixels
-		******************************************************************************/
-		cudaMallocManaged(&pixels, num_pixels_y.re * num_pixels_y.im * sizeof(T));
-		if (cuda_error("cudaMallocManaged(*pixels)", false, __FILE__, __LINE__)) return false;
-		if (write_parities)
-		{
-			cudaMallocManaged(&pixels_minima, num_pixels_y.re * num_pixels_y.im * sizeof(T));
-			if (cuda_error("cudaMallocManaged(*pixels_minima)", false, __FILE__, __LINE__)) return false;
-			cudaMallocManaged(&pixels_saddles, num_pixels_y.re * num_pixels_y.im * sizeof(T));
-			if (cuda_error("cudaMallocManaged(*pixels_saddles)", false, __FILE__, __LINE__)) return false;
-		}
-
 		t_elapsed = stopwatch.stop();
 		print_verbose("Done allocating memory. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
-
-
-		/******************************************************************************
-		initialize pixel values
-		******************************************************************************/
-		print_verbose("Initializing array values...\n", verbose, 3);
-		stopwatch.start();
-
-		thrust::fill(thrust::device, pixels, pixels + num_pixels_y.re * num_pixels_y.im, 0);
-		if (write_parities)
-		{
-			thrust::fill(thrust::device, pixels_minima, pixels_minima + num_pixels_y.re * num_pixels_y.im, 0);
-			thrust::fill(thrust::device, pixels_saddles, pixels_saddles + num_pixels_y.re * num_pixels_y.im, 0);
-		}
-
-		t_elapsed = stopwatch.stop();
-		print_verbose("Done initializing array values. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
 
 		return true;
 	}
@@ -1172,7 +1032,7 @@ private:
 
 
 		print_verbose("Writing parameter info...\n", verbose, 2);
-		fname = outfile_prefix + "ipm_parameter_info.txt";
+		fname = outfile_prefix + "mif_parameter_info.txt";
 		outfile.open(fname);
 		if (!outfile.is_open())
 		{
@@ -1226,25 +1086,12 @@ private:
 		outfile << "safety_scale " << safety_scale << "\n";
 		outfile << "center_y1 " << center_y.re << "\n";
 		outfile << "center_y2 " << center_y.im << "\n";
-		outfile << "half_length_y1 " << half_length_y.re << "\n";
-		outfile << "half_length_y2 " << half_length_y.im << "\n";
-		outfile << "num_pixels_y1 " << num_pixels_y.re << "\n";
-		outfile << "num_pixels_y2 " << num_pixels_y.im << "\n";
 		outfile << "center_x1 " << center_x.re << "\n";
 		outfile << "center_x2 " << center_x.im << "\n";
-		outfile << "half_length_x1 " << half_length_x.re << "\n";
-		outfile << "half_length_x2 " << half_length_x.im << "\n";
-		outfile << "num_rays_y " << num_rays_y << "\n";
-		outfile << "num_rays_x " << num_rays_x << "\n";
-		outfile << "ray_half_sep_1 " << ray_half_sep.re << "\n";
-		outfile << "ray_half_sep_2 " << ray_half_sep.im << "\n";
 		outfile << "alpha_error " << alpha_error << "\n";
 		outfile << "expansion_order " << expansion_order << "\n";
 		outfile << "root_half_length " << root_half_length << "\n";
-		outfile << "num_ray_threads_1 " << num_ray_threads.re << "\n";
-		outfile << "num_ray_threads_2 " << num_ray_threads.im << "\n";
 		outfile << "tree_levels " << tree_levels << "\n";
-		outfile << "t_shoot_cells " << t_shoot_cells << "\n";
 		outfile.close();
 		print_verbose("Done writing parameter info to file " << fname << "\n", verbose, 1);
 		print_verbose("\n", verbose * (write_stars || write_histograms || write_maps), 2);
@@ -1253,7 +1100,7 @@ private:
 		if (write_stars)
 		{
 			print_verbose("Writing star info...\n", verbose, 2);
-			fname = outfile_prefix + "ipm_stars" + outfile_type;
+			fname = outfile_prefix + "mif_stars" + outfile_type;
 			if (!write_star_file<T>(num_stars, rectangular, corner, theta_star, stars, fname))
 			{
 				std::cerr << "Error. Unable to write star info to file " << fname << "\n";
@@ -1392,18 +1239,6 @@ public:
 
 		binomial_coeffs = nullptr;
 
-		pixels = nullptr;
-		pixels_minima = nullptr;
-		pixels_saddles = nullptr;
-
-		histogram = nullptr;
-		histogram_minima = nullptr;
-		histogram_saddles = nullptr;
-
-		log_histogram = nullptr;
-		log_histogram_minima = nullptr;
-		log_histogram_saddles = nullptr;
-
 		tree = {};
 	}
 
@@ -1419,18 +1254,6 @@ public:
 		temp_stars = nullptr;
 
 		binomial_coeffs = nullptr;
-
-		pixels = nullptr;
-		pixels_minima = nullptr;
-		pixels_saddles = nullptr;
-
-		histogram = nullptr;
-		histogram_minima = nullptr;
-		histogram_saddles = nullptr;
-
-		log_histogram = nullptr;
-		log_histogram_minima = nullptr;
-		log_histogram_saddles = nullptr;
 
 		tree = {};
 
@@ -1462,10 +1285,6 @@ public:
 	int get_num_stars()			{return num_stars;}
 	Complex<T> get_corner()		{if (rectangular) {return corner;} else {return Complex<T>(corner.abs(), 0);}}
 	star<T>* get_stars()		{return stars;}
-	T* get_pixels()				{return pixels;}
-	T* get_pixels_minima()		{return pixels_minima;}
-	T* get_pixels_saddles()		{return pixels_saddles;}
-	double get_t_shoot_cells()	{return t_shoot_cells;}
 
 };
 

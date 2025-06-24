@@ -26,7 +26,7 @@ MIF<dtype> mif;
 /******************************************************************************
 constants to be used
 ******************************************************************************/
-constexpr int OPTS_SIZE = 2 * 29;
+constexpr int OPTS_SIZE = 2 * 24;
 const std::string OPTS[OPTS_SIZE] =
 {
 	"-h", "--help",
@@ -47,11 +47,6 @@ const std::string OPTS[OPTS_SIZE] =
 	"-sf", "--starfile",
 	"-cy1", "--center_y1",
 	"-cy2", "--center_y2",
-	"-hly1", "--half_length_y1",
-	"-hly2", "--half_length_y2",
-	"-npy1", "--num_pixels_y1",
-	"-npy2", "--num_pixels_y2",
-	"-nry", "--num_rays_y",
 	"-rs", "--random_seed",
 	"-ws", "--write_stars",
 	"-wm", "--write_maps",
@@ -129,15 +124,6 @@ void display_usage(char* name)
 		<< "  -cy1, --center_y1        Specify the y1 and y2 coordinates of the center of\n"
 		<< "  -cy2, --center_y2        the magnification map.\n"
 		<< "                           Default value: " << mif.center_y << "\n"
-		<< "  -hly1,--half_length_y1   Specify the y1 and y2 extent of the half-length of\n"
-		<< "  -hly2,--half_length_y2   the magnification map.\n"
-		<< "                           Default value: " << mif.half_length_y << "\n"
-		<< "  -npy1,--num_pixels_y1    Specify the number of pixels per side for the\n"
-		<< "  -npy2,--num_pixels_y2    magnification map.\n"
-		<< "                           Default value: " << mif.num_pixels_y << "\n"
-		<< "  -nry,--num_rays_y        Specify the average number of rays per pixel in the\n"
-		<< "                           source plane in the absence of lensing.\n"
-		<< "                           Default value: " << mif.num_rays_y << "\n"
 		<< "  -rs,--random_seed        Specify the random seed for star field generation.\n"
 		<< "                           A value of 0 is reserved for star input files.\n"
 		<< "  -ws,--write_stars        Specify whether to write stars (1) or not (0).\n"
@@ -433,66 +419,6 @@ int main(int argc, char* argv[])
 			catch (...)
 			{
 				std::cerr << "Error. Invalid center_y2 input.\n";
-				return -1;
-			}
-		}
-		else if (argv[i] == std::string("-hly1") || argv[i] == std::string("--half_length_y1"))
-		{
-			try
-			{
-				set_param("half_length_y1", mif.half_length_y.re, std::stod(cmdinput), verbose);
-			}
-			catch (...)
-			{
-				std::cerr << "Error. Invalid half_length_y1 input.\n";
-				return -1;
-			}
-		}
-		else if (argv[i] == std::string("-hly2") || argv[i] == std::string("--half_length_y2"))
-		{
-			try
-			{
-				set_param("half_length_y2", mif.half_length_y.im, std::stod(cmdinput), verbose);
-			}
-			catch (...)
-			{
-				std::cerr << "Error. Invalid half_length_y2 input.\n";
-				return -1;
-			}
-		}
-		else if (argv[i] == std::string("-npy1") || argv[i] == std::string("--num_pixels_y1"))
-		{
-			try
-			{
-				set_param("num_pixels_y1", mif.num_pixels_y.re, std::stoi(cmdinput), verbose);
-			}
-			catch (...)
-			{
-				std::cerr << "Error. Invalid num_pixels_y1 input.\n";
-				return -1;
-			}
-		}
-		else if (argv[i] == std::string("-npy2") || argv[i] == std::string("--num_pixels_y2"))
-		{
-			try
-			{
-				set_param("num_pixels_y2", mif.num_pixels_y.im, std::stoi(cmdinput), verbose);
-			}
-			catch (...)
-			{
-				std::cerr << "Error. Invalid num_pixels_y2 input.\n";
-				return -1;
-			}
-		}
-		else if (argv[i] == std::string("-nry") || argv[i] == std::string("--num_rays_y"))
-		{
-			try
-			{
-				set_param("num_rays_y", mif.num_rays_y, std::stoi(cmdinput), verbose);
-			}
-			catch (...)
-			{
-				std::cerr << "Error. Invalid num_rays_y input.\n";
 				return -1;
 			}
 		}
