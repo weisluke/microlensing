@@ -1086,7 +1086,7 @@ private:
 										   rectangular, corner, approx, taylor_smooth, w0, v * Complex<T>(0, 1));
 				node = treenode::get_nearest_node(z1, tree[0]);
 				f1 = parametric_image_line(z1, kappa_tot, shear, theta_star, stars, kappa_star, node,
-										   rectangular, corner, approx, taylor_smooth, w0, v);
+										   rectangular, corner, approx, taylor_smooth, w0, v * Complex<T>(0, 1));
 				
 				//if we are crossing a star, the sign changes
 				bool is_star = (is_near_star(z1, stars, tree[0], dz) && is_near_star(z2, stars, tree[0], dz));
