@@ -839,12 +839,12 @@ private:
 
         std::vector<std::vector<Complex<T>>> tmp_image_line;
 
+        int s = 30; //scale factor for how far true root can be from the tangent estimate
         Complex<T> z, new_z, tmp_dz, dz;
         T max_dz = theta_star * std::sqrt(mean_mass2 / mean_mass) / s;
         T min_dz = max_dz / 1000;
         TreeNode<T>* node;
         T mu1, mu2;
-        int s = 30; //scale factor for how far true root can be from the tangent estimate
         T dt = 1;
 
         thrust::universal_vector<int> use_star(num_stars, 1);
@@ -871,8 +871,8 @@ private:
         tmp_image_line.back().push_back(z);
 
         node = treenode::get_nearest_node(z, tree[0]);
-        mu1 = microlensing::magnification<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, node,
-                        					 rectangular, corner, approx, taylor_smooth);
+        mu1 = microlensing::mu<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, node,
+                        		  rectangular, corner, approx, taylor_smooth);
         do
         {
             new_z = step_tangent<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
@@ -895,8 +895,8 @@ private:
             }
 
             node = treenode::get_nearest_node(new_z, tree[0]);
-            mu2 = microlensing::magnification<T>(new_z, kappa_tot, shear, theta_star, stars, kappa_star, node,
-                            					 rectangular, corner, approx, taylor_smooth);
+            mu2 = microlensing::mu<T>(new_z, kappa_tot, shear, theta_star, stars, kappa_star, node,
+                            		  rectangular, corner, approx, taylor_smooth);
             
             if ((mu1 < 0 && mu2 > 0 )
                 || (mu1 > 0 && mu2 < 0))
@@ -953,8 +953,8 @@ private:
                 tmp_image_line.back().push_back(z);
 
                 node = treenode::get_nearest_node(z, tree[0]);
-                mu1 = microlensing::magnification<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, node,
-                                rectangular, corner, approx, taylor_smooth);
+                mu1 = microlensing::mu<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, node,
+                                		  rectangular, corner, approx, taylor_smooth);
                 do
                 {
                     new_z = step_tangent<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
@@ -986,8 +986,8 @@ private:
                     }
 
                     node = treenode::get_nearest_node(new_z, tree[0]);
-                    mu2 = microlensing::magnification<T>(new_z, kappa_tot, shear, theta_star, stars, kappa_star, node,
-                                    rectangular, corner, approx, taylor_smooth);
+                    mu2 = microlensing::mu<T>(new_z, kappa_tot, shear, theta_star, stars, kappa_star, node,
+                                    		  rectangular, corner, approx, taylor_smooth);
                     
                     if ((mu1 < 0 && mu2 > 0 )
                         || (mu1 > 0 && mu2 < 0))
@@ -1094,15 +1094,15 @@ private:
 				if (sgn(f1) != sgn(f2) && !is_star)
 				{
 					T dt = -f1.re / (f2.re - f1.re);
-					point_images.push_back(z1 + dz * dt);
+					images.push_back(z1 + dz * dt);
 				}
 
 			}
 		}
-		print_verbose("Number of point images: " << point_images.size() << "\n", verbose, 2);
-		for (int i = 0; i < point_images.size(); i++)
+		print_verbose("Number of point images: " << images.size() << "\n", verbose, 2);
+		for (int i = 0; i < images.size(); i++)
 		{
-			point_images[i] = find_point_image(point_images[i], kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+			images[i] = find_point_image(images[i], kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
 					rectangular, corner, approx, taylor_smooth, w0, v);
 		}
         t_elapsed = stopwatch.stop();
@@ -1204,8 +1204,8 @@ private:
 		if (write_images)
 		{
 			print_verbose("Writing point images...\n", verbose, 2);
-			fname = outfile_prefix + "mif_point_images" + outfile_type;
-			if (!write_array<Complex<T>>(&point_images[0], 1, point_images.size(), fname))
+			fname = outfile_prefix + "mif_images" + outfile_type;
+			if (!write_array<Complex<T>>(&images[0], 1, images.size(), fname))
 			{
 				std::cerr << "Error. Unable to write point images to file " << fname << "\n";
 				return false;
