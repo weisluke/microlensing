@@ -217,6 +217,27 @@ private:
 			if (return_on_error && cuda_error("cudaFree(*tree[i])", false, __FILE__, __LINE__)) return false;
 			tree[i] = nullptr;
 		}
+		
+		cudaFree(image_line);
+		if (return_on_error && cuda_error("cudaFree(*image_line)", false, __FILE__, __LINE__)) return false;
+		image_line = nullptr;
+		
+		cudaFree(source_line);
+		if (return_on_error && cuda_error("cudaFree(*source_line)", false, __FILE__, __LINE__)) return false;
+		source_line = nullptr;
+		
+		cudaFree(magnifications);
+		if (return_on_error && cuda_error("cudaFree(*magnifications)", false, __FILE__, __LINE__)) return false;
+		magnifications = nullptr;
+
+		num_images.clear();
+		num_images.shrink_to_fit();
+
+		images.clear();
+		images.shrink_to_fit();
+
+		image_mags.clear();
+		image_mags.shrink_to_fit();
 
 		print_verbose("Done clearing memory.\n\n", verbose, 3);
 		return true;
@@ -407,8 +428,8 @@ private:
 		average magnification of the system
 		******************************************************************************/
 		set_param("mu_ave", mu_ave, 1 / ((1 - kappa_tot) * (1 - kappa_tot) - shear * shear), verbose);
-		
-		max_r = theta_star * std::sqrt(kappa_star * mean_mass2 / (mean_mass * light_loss));
+
+		set_param("max_r", max_r, theta_star * std::sqrt(kappa_star * mean_mass2 / (mean_mass * light_loss)), verbose);
 
 
 		/******************************************************************************
@@ -850,8 +871,23 @@ private:
         thrust::universal_vector<int> use_star(num_stars, 1);
         set_threads(threads, 256);
         set_blocks(threads, blocks, num_stars);
-        use_star_kernel<T> <<<blocks, threads>>> (stars, num_stars, kappa_tot, shear, w0, v, max_r, &use_star[0]);
-        if (cuda_error("use_star_kernel", true, __FILE__, __LINE__)) return false;
+		if (write_image_line)
+		{
+        	use_star_kernel<T> <<<blocks, threads>>> (stars, num_stars, kappa_tot, shear, w0, v, max_r, &use_star[0]);
+        	if (cuda_error("use_star_kernel", true, __FILE__, __LINE__)) return false;
+		}
+		else
+		{
+			int N_ANGLES = 1000;
+			for (int i = 0; i <= N_ANGLES; i++)
+			{
+        		use_star_kernel<T> <<<blocks, threads>>> (stars, num_stars, kappa_tot, shear, w0, 
+														  v * Complex<T>(std::cos(std::numbers::pi_v<T> / (2 * N_ANGLES) * i),
+																		 std::sin(std::numbers::pi_v<T> / (2 * N_ANGLES) * i)),
+														  max_r, &use_star[0]);
+        		if (cuda_error("use_star_kernel", true, __FILE__, __LINE__)) return false;
+			}
+		}
         
 		/******************************************************************************
 		BEGIN finding main image line
