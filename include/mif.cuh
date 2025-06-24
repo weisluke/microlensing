@@ -131,10 +131,10 @@ private:
 
 	int* binomial_coeffs = nullptr;
 
-	Complex<T>* image_line = nullptr;
-	Complex<T>* source_line = nullptr;
-	T* magnifications = nullptr;
-	std::vector<int> num_images;
+	Complex<T>* image_lines = nullptr;
+	Complex<T>* source_lines = nullptr;
+	T* image_lines_mags = nullptr;
+	std::vector<int> image_lines_lengths;
 
 	std::vector<Complex<T>> images;
 	std::vector<Complex<T>> image_mags;
@@ -218,20 +218,20 @@ private:
 			tree[i] = nullptr;
 		}
 		
-		cudaFree(image_line);
-		if (return_on_error && cuda_error("cudaFree(*image_line)", false, __FILE__, __LINE__)) return false;
-		image_line = nullptr;
+		cudaFree(image_lines);
+		if (return_on_error && cuda_error("cudaFree(*image_lines)", false, __FILE__, __LINE__)) return false;
+		image_lines = nullptr;
 		
-		cudaFree(source_line);
-		if (return_on_error && cuda_error("cudaFree(*source_line)", false, __FILE__, __LINE__)) return false;
-		source_line = nullptr;
+		cudaFree(source_lines);
+		if (return_on_error && cuda_error("cudaFree(*source_lines)", false, __FILE__, __LINE__)) return false;
+		source_lines = nullptr;
 		
-		cudaFree(magnifications);
-		if (return_on_error && cuda_error("cudaFree(*magnifications)", false, __FILE__, __LINE__)) return false;
-		magnifications = nullptr;
+		cudaFree(image_lines_mags);
+		if (return_on_error && cuda_error("cudaFree(*image_lines_mags)", false, __FILE__, __LINE__)) return false;
+		image_lines_mags = nullptr;
 
-		num_images.clear();
-		num_images.shrink_to_fit();
+		image_lines_lengths.clear();
+		image_lines_lengths.shrink_to_fit();
 
 		images.clear();
 		images.shrink_to_fit();
@@ -858,7 +858,7 @@ private:
 	{
 		print_verbose("Finding images...\n", verbose, 1);
 
-        std::vector<std::vector<Complex<T>>> tmp_image_line;
+        std::vector<std::vector<Complex<T>>> tmp_image_lines;
 
         int s = 30; //scale factor for how far true root can be from the tangent estimate
         Complex<T> z, new_z, tmp_dz, dz;
@@ -900,11 +900,11 @@ private:
             		   -v.im / (1 - kappa_tot - shear));
         z = z / z.abs() * corner.abs() * safety_scale;
 
-        tmp_image_line.push_back(std::vector<Complex<T>>());
+        tmp_image_lines.push_back(std::vector<Complex<T>>());
 
         z = find_root<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
 						 rectangular, corner, approx, taylor_smooth, w0, v);
-        tmp_image_line.back().push_back(z);
+        tmp_image_lines.back().push_back(z);
 
         node = treenode::get_nearest_node(z, tree[0]);
         mu1 = microlensing::mu<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, node,
@@ -947,7 +947,7 @@ private:
             }           
             z = new_z;
             mu1 = mu2;
-            tmp_image_line.back().push_back(z);
+            tmp_image_lines.back().push_back(z);
 
             if (is_near_star(z, stars, tree[0], dz)
                 && is_near_star(z - dz, stars, tree[0], dz))
@@ -982,11 +982,11 @@ private:
                 dz *= min_dz / dz.abs();
                 z = stars[i].position + dz;
 
-                tmp_image_line.push_back(std::vector<Complex<T>>());
+                tmp_image_lines.push_back(std::vector<Complex<T>>());
 
                 z = find_root<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
                                     rectangular, corner, approx, taylor_smooth, w0, v);
-                tmp_image_line.back().push_back(z);
+                tmp_image_lines.back().push_back(z);
 
                 node = treenode::get_nearest_node(z, tree[0]);
                 mu1 = microlensing::mu<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, node,
@@ -1038,7 +1038,7 @@ private:
                     }           
                     z = new_z;
                     mu1 = mu2;
-                    tmp_image_line.back().push_back(z);
+                    tmp_image_lines.back().push_back(z);
                 } while (true);
             }
         }
@@ -1051,46 +1051,46 @@ private:
         print_verbose("Done finding images.\n\n", verbose, 1);
 
 
-        for (int i = 0; i < tmp_image_line.size(); i++)
+        for (int i = 0; i < tmp_image_lines.size(); i++)
         {
-            num_images.push_back(tmp_image_line[i].size());
+            image_lines_lengths.push_back(tmp_image_lines[i].size());
         }
 
-        int total_num_images = std::reduce(num_images.begin(), num_images.end(), 0);
+        int total_image_lines_lengths = std::reduce(image_lines_lengths.begin(), image_lines_lengths.end(), 0);
         
-        cudaMallocManaged(&image_line, total_num_images * sizeof(Complex<T>));
-        if (cuda_error("cudaMallocManaged(*image_line)", false, __FILE__, __LINE__)) return false;
-        cudaMallocManaged(&source_line, total_num_images * sizeof(Complex<T>));
-        if (cuda_error("cudaMallocManaged(*source_line)", false, __FILE__, __LINE__)) return false;
-        cudaMallocManaged(&magnifications, total_num_images * sizeof(T));
-        if (cuda_error("cudaMallocManaged(*magnifications)", false, __FILE__, __LINE__)) return false;
+        cudaMallocManaged(&image_lines, total_image_lines_lengths * sizeof(Complex<T>));
+        if (cuda_error("cudaMallocManaged(*image_lines)", false, __FILE__, __LINE__)) return false;
+        cudaMallocManaged(&source_lines, total_image_lines_lengths * sizeof(Complex<T>));
+        if (cuda_error("cudaMallocManaged(*source_lines)", false, __FILE__, __LINE__)) return false;
+        cudaMallocManaged(&image_lines_mags, total_image_lines_lengths * sizeof(T));
+        if (cuda_error("cudaMallocManaged(*image_lines_mags)", false, __FILE__, __LINE__)) return false;
 
         print_verbose("Copying image lines...\n", verbose, 2);
         stopwatch.start();
-        for (int i = 0; i < tmp_image_line.size(); i++)
+        for (int i = 0; i < tmp_image_lines.size(); i++)
         {
-            int start = std::reduce(&num_images[0], &num_images[i], 0);
-            thrust::copy(tmp_image_line[i].begin(), tmp_image_line[i].end(), &image_line[start]);
+            int start = std::reduce(&image_lines_lengths[0], &image_lines_lengths[i], 0);
+            thrust::copy(tmp_image_lines[i].begin(), tmp_image_lines[i].end(), &image_lines[start]);
         }
         t_elapsed = stopwatch.stop();
         print_verbose("Done copying image lines. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 2);
 
 
         set_threads(threads, 256);
-        set_blocks(threads, blocks, total_num_images);
+        set_blocks(threads, blocks, total_image_lines_lengths);
 
         print_verbose("Mapping image lines...\n", verbose, 2);
         stopwatch.start();
-        image_to_source_kernel<T> <<<blocks, threads>>> (image_line, total_num_images, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
-            rectangular, corner, approx, taylor_smooth, source_line);
+        image_to_source_kernel<T> <<<blocks, threads>>> (image_lines, total_image_lines_lengths, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+            rectangular, corner, approx, taylor_smooth, source_lines);
         if (cuda_error("image_to_source_kernel", true, __FILE__, __LINE__)) return false;
         t_elapsed = stopwatch.stop();
         print_verbose("Done mapping image lines. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 2);
 
         print_verbose("Calculating magnifications...\n", verbose, 2);
         stopwatch.start();
-        magnifications_kernel<T> <<<blocks, threads>>> (image_line, total_num_images, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
-            rectangular, corner, approx, taylor_smooth, magnifications);
+        magnifications_kernel<T> <<<blocks, threads>>> (image_lines, total_image_lines_lengths, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+            rectangular, corner, approx, taylor_smooth, image_lines_mags);
         if (cuda_error("magnifications_kernel", true, __FILE__, __LINE__)) return false;
         t_elapsed = stopwatch.stop();
         print_verbose("Done calculating magnifications. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 2);
@@ -1107,14 +1107,14 @@ private:
 		TreeNode<T>* node;
 		
         stopwatch.start();
-		for (int i =0; i < num_images.size(); i++)
+		for (int i =0; i < image_lines_lengths.size(); i++)
 		{
-			int start = std::reduce(&num_images[0], &num_images[i], 0);
+			int start = std::reduce(&image_lines_lengths[0], &image_lines_lengths[i], 0);
 
-			for (int j = 0; j < num_images[i] - 1; j++)
+			for (int j = 0; j < image_lines_lengths[i] - 1; j++)
 			{
-				z1 = image_line[start + j];
-				z2 = image_line[start + j + 1];
+				z1 = image_lines[start + j];
+				z2 = image_lines[start + j + 1];
 				dz = (z2 - z1);
 
 				node = treenode::get_nearest_node(z2, tree[0]);
@@ -1254,7 +1254,7 @@ private:
 		{
 			print_verbose("Writing image line...\n", verbose, 2);
 			fname = outfile_prefix + "mif_image_line" + outfile_type;
-			if (!write_ragged_array<Complex<T>>(image_line, num_images, fname))
+			if (!write_ragged_array<Complex<T>>(image_lines, image_lines_lengths, fname))
 			{
 				std::cerr << "Error. Unable to write images to file " << fname << "\n";
 				return false;
@@ -1262,8 +1262,8 @@ private:
 			print_verbose("Done writing image line to file " << fname << "\n", verbose, 1);
 
 			print_verbose("Writing source line...\n", verbose, 2);
-			fname = outfile_prefix + "mif_source_line" + outfile_type;
-			if (!write_ragged_array<Complex<T>>(source_line, num_images, fname))
+			fname = outfile_prefix + "mif_source_lines" + outfile_type;
+			if (!write_ragged_array<Complex<T>>(source_lines, image_lines_lengths, fname))
 			{
 				std::cerr << "Error. Unable to write sources to file " << fname << "\n";
 				return false;
@@ -1274,7 +1274,7 @@ private:
 			{
 				print_verbose("Writing image line magnifications...\n", verbose, 2);
 				fname = outfile_prefix + "mif_image_line_magnifications" + outfile_type;
-				if (!write_ragged_array<T>(magnifications, num_images, fname))
+				if (!write_ragged_array<T>(image_lines_mags, image_lines_lengths, fname))
 				{
 					std::cerr << "Error. Unable to write magnifications to file " << fname << "\n";
 					return false;
