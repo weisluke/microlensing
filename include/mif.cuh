@@ -1175,15 +1175,17 @@ private:
 			outfile << "rad " << corner.abs() << "\n";
 		}
 		outfile << "safety_scale " << safety_scale << "\n";
-		outfile << "center_y1 " << center_y.re << "\n";
-		outfile << "center_y2 " << center_y.im << "\n";
+		outfile << "w0_1 " << w0.re << "\n";
+		outfile << "w0_2 " << w0.im << "\n";
+		outfile << "v_1 " << v.re << "\n";
+		outfile << "v_2 " << v.im << "\n";
 		outfile << "alpha_error " << alpha_error << "\n";
 		outfile << "expansion_order " << expansion_order << "\n";
 		outfile << "root_half_length " << root_half_length << "\n";
 		outfile << "tree_levels " << tree_levels << "\n";
 		outfile.close();
 		print_verbose("Done writing parameter info to file " << fname << "\n", verbose, 1);
-		print_verbose("\n", verbose * (write_stars || write_histograms || write_maps), 2);
+		print_verbose("\n", verbose * (write_stars || write_images || write_image_line), 2);
 
 
 		if (write_stars)
@@ -1196,102 +1198,52 @@ private:
 				return false;
 			}
 			print_verbose("Done writing star info to file " << fname << "\n", verbose, 1);
-			print_verbose("\n", verbose * (write_histograms || write_maps), 2);
+			print_verbose("\n", verbose * (write_images || write_image_line), 2);
 		}
 
-
-		/******************************************************************************
-		histograms of magnification maps
-		******************************************************************************/
-		if (write_histograms)
+		if (write_images)
 		{
-			print_verbose("Writing magnification histograms...\n", verbose, 2);
-
-			fname = outfile_prefix + "ipm_mags_numpixels.txt";
-			if (!write_histogram<int>(histogram, histogram_length, min_mag, fname))
+			print_verbose("Writing point images...\n", verbose, 2);
+			fname = outfile_prefix + "mif_point_images" + outfile_type;
+			if (!write_array<Complex<T>>(&point_images[0], 1, point_images.size(), fname))
 			{
-				std::cerr << "Error. Unable to write magnification histogram to file " << fname << "\n";
+				std::cerr << "Error. Unable to write point images to file " << fname << "\n";
 				return false;
 			}
-			print_verbose("Done writing magnification histogram to file " << fname << "\n", verbose, 1);
-
-			fname = outfile_prefix + "ipm_log_mags_numpixels.txt";
-			if (!write_histogram<int>(log_histogram, log_histogram_length, min_log_mag, fname))
-			{
-				std::cerr << "Error. Unable to write magnification histogram to file " << fname << "\n";
-				return false;
-			}
-			print_verbose("Done writing magnification histogram to file " << fname << "\n", verbose, 1);
-
-			if (write_parities)
-			{
-				fname = outfile_prefix + "ipm_mags_numpixels_minima.txt";
-				if (!write_histogram<int>(histogram_minima, histogram_length, min_mag, fname))
-				{
-					std::cerr << "Error. Unable to write magnification histogram to file " << fname << "\n";
-					return false;
-				}
-				print_verbose("Done writing magnification histogram to file " << fname << "\n", verbose, 1);
-
-				fname = outfile_prefix + "ipm_log_mags_numpixels_minima.txt";
-				if (!write_histogram<int>(log_histogram_minima, log_histogram_length, min_log_mag, fname))
-				{
-					std::cerr << "Error. Unable to write magnification histogram to file " << fname << "\n";
-					return false;
-				}
-				print_verbose("Done writing magnification histogram to file " << fname << "\n", verbose, 1);
-
-				fname = outfile_prefix + "ipm_mags_numpixels_saddles.txt";
-				if (!write_histogram<int>(histogram_saddles, histogram_length, min_mag, fname))
-				{
-					std::cerr << "Error. Unable to write magnification histogram to file " << fname << "\n";
-					return false;
-				}
-				print_verbose("Done writing magnification histogram to file " << fname << "\n", verbose, 1);
-
-				fname = outfile_prefix + "ipm_log_mags_numpixels_saddles.txt";
-				if (!write_histogram<int>(log_histogram_saddles, log_histogram_length, min_log_mag, fname))
-				{
-					std::cerr << "Error. Unable to write magnification histogram to file " << fname << "\n";
-					return false;
-				}
-				print_verbose("Done writing magnification histogram to file " << fname << "\n", verbose, 1);
-			}
-			print_verbose("\n", verbose * write_maps, 2);
+			print_verbose("Done writing point images to file " << fname << "\n", verbose, 1);
+			print_verbose("\n", verbose * write_image_line, 2);
 		}
 
-
-		/******************************************************************************
-		write magnifications for minima, saddle, and combined maps
-		******************************************************************************/
-		if (write_maps)
+		if (write_image_line)
 		{
-			print_verbose("Writing magnifications...\n", verbose, 2);
-
-			fname = outfile_prefix + "ipm_magnifications" + outfile_type;
-			if (!write_array<T>(pixels, num_pixels_y.im, num_pixels_y.re, fname))
+			print_verbose("Writing image line...\n", verbose, 2);
+			fname = outfile_prefix + "mif_image_line" + outfile_type;
+			if (!write_ragged_array<Complex<T>>(image_line, num_images, fname))
 			{
-				std::cerr << "Error. Unable to write magnifications to file " << fname << "\n";
+				std::cerr << "Error. Unable to write images to file " << fname << "\n";
 				return false;
 			}
-			print_verbose("Done writing magnifications to file " << fname << "\n", verbose, 1);
-			if (write_parities)
+			print_verbose("Done writing image line to file " << fname << "\n", verbose, 1);
+
+			print_verbose("Writing source line...\n", verbose, 2);
+			fname = outfile_prefix + "mif_source_line" + outfile_type;
+			if (!write_ragged_array<Complex<T>>(sources, num_images, fname))
 			{
-				fname = outfile_prefix + "ipm_magnifications_minima" + outfile_type;
-				if (!write_array<T>(pixels_minima, num_pixels_y.im, num_pixels_y.re, fname))
+				std::cerr << "Error. Unable to write sources to file " << fname << "\n";
+				return false;
+			}
+			print_verbose("Done writing source line to file " << fname << "\n", verbose, 1);
+
+			if (write_magnifications)
+			{
+				print_verbose("Writing image line magnifications...\n", verbose, 2);
+				fname = outfile_prefix + "mif_image_line_magnifications" + outfile_type;
+				if (!write_ragged_array<T>(magnifications, num_images, fname))
 				{
 					std::cerr << "Error. Unable to write magnifications to file " << fname << "\n";
 					return false;
 				}
-				print_verbose("Done writing magnifications to file " << fname << "\n", verbose, 1);
-
-				fname = outfile_prefix + "ipm_magnifications_saddles" + outfile_type;
-				if (!write_array<T>(pixels_saddles, num_pixels_y.im, num_pixels_y.re, fname))
-				{
-					std::cerr << "Error. Unable to write magnifications to file " << fname << "\n";
-					return false;
-				}
-				print_verbose("Done writing magnifications to file " << fname << "\n", verbose, 1);
+				print_verbose("Done writing image line magnifications to file " << fname << "\n", verbose, 1);
 			}
 		}
 
