@@ -939,7 +939,7 @@ private:
                 use_star[i] = 0;
                 dz = Complex<T>(-v.re / (1 - kappa_tot + shear), 
                                 -v.im / (1 - kappa_tot - shear));
-                max_dz = theta_star * theta_star * stars[i].mass / macro_parametric_image_line(stars[i].position, kappa_tot, shear, w0, v).abs();
+                max_dz = theta_star * theta_star * stars[i].mass / std::abs(macro_parametric_image_line(stars[i].position, kappa_tot, shear, w0, v));
                 max_dz /= 2 * s; //diameter to radius
                 max_dz = std::min(max_dz, theta_star * std::sqrt(mean_mass2 / mean_mass) / s);
                 min_dz = max_dz / 1000;
@@ -1053,7 +1053,7 @@ private:
 
         print_verbose("Calculating magnifications...\n", verbose, 2);
         stopwatch.start();
-        magnifications_kernel<T> <<<blocks, threads>>> (images, total_num_images, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+        magnifications_kernel<T> <<<blocks, threads>>> (image_line, total_num_images, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
             rectangular, corner, approx, taylor_smooth, magnifications);
         if (cuda_error("magnifications_kernel", true, __FILE__, __LINE__)) return false;
         t_elapsed = stopwatch.stop();
@@ -1093,7 +1093,7 @@ private:
 				
 				if (sgn(f1) != sgn(f2) && !is_star)
 				{
-					T dt = -f1.re / (f2.re - f1.re);
+					T dt = -f1 / (f2 - f1);
 					images.push_back(z1 + dz * dt);
 				}
 
@@ -1227,7 +1227,7 @@ private:
 
 			print_verbose("Writing source line...\n", verbose, 2);
 			fname = outfile_prefix + "mif_source_line" + outfile_type;
-			if (!write_ragged_array<Complex<T>>(sources, num_images, fname))
+			if (!write_ragged_array<Complex<T>>(source_line, num_images, fname))
 			{
 				std::cerr << "Error. Unable to write sources to file " << fname << "\n";
 				return false;

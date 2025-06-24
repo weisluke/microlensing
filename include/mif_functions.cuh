@@ -265,7 +265,7 @@ __host__ __device__ Complex<T> find_root(Complex<T> z, T kappa, T gamma, T theta
         /******************************************************************************
         if mapping is within 10^-9 * theta_star of desired source track, return
         ******************************************************************************/
-        if (f.abs() / theta < static_cast<T>(0.000000001))
+        if (std::abs(f) / theta < static_cast<T>(0.000000001))
         {
             return z;
         }
@@ -449,7 +449,7 @@ __host__ __device__ Complex<T> find_point_image(Complex<T> z, T kappa, T gamma, 
         /******************************************************************************
         if mapping is within 10^-9 * theta_star of desired source track, return
         ******************************************************************************/
-        if (f1.abs() / theta < static_cast<T>(0.000000001) && f2.abs() / theta < static_cast<T>(0.000000001))
+        if (std::abs(f1) / theta < static_cast<T>(0.000000001) && std::abs(f2) / theta < static_cast<T>(0.000000001))
         {
             return z;
         }
@@ -514,7 +514,7 @@ __host__ __device__ Complex<T> find_critical_curve_image(Complex<T> z, T kappa, 
         /******************************************************************************
         if mapping is within 10^-9 * theta_star of desired source track, return
         ******************************************************************************/
-        if (f.abs() / theta < static_cast<T>(0.000000001) && std::abs(mu) < static_cast<T>(0.000000001))
+        if (std::abs(f) / theta < static_cast<T>(0.000000001) && std::abs(inv_mu) < static_cast<T>(0.000000001))
         {
             return z;
         }
@@ -525,7 +525,7 @@ __host__ __device__ Complex<T> find_critical_curve_image(Complex<T> z, T kappa, 
         dinvmudz = microlensing::d_inv_mu_d_z<T>(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
         dinvmudzbar = microlensing::d_inv_mu_d_zbar<T>(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
 
-        dz = (dinvmudzbar * f - dfdzbar * invmu) / (dfdz * dinvmudzbar - dfdzbar * dinvmudz);
+        dz = (dinvmudzbar * f - dfdzbar * inv_mu) / (dfdz * dinvmudzbar - dfdzbar * dinvmudz);
         
         //don't iterate needlessly if z is changing by a tiny amount
         if (dz.abs() / theta < static_cast<T>(0.000000001))
