@@ -68,6 +68,7 @@ extern "C"
     dtype* get_stars(MIF<dtype> *self)                          {return &(self->get_stars()[0].position.re);}
     dtype* get_images(MIF<dtype> *self)                         {return &(self->get_images()[0].re);}
     int get_num_images(MIF<dtype> *self)                        {return self->get_num_images();}
+    dtype* get_images_mags(MIF<dtype> *self)                    {return &(self->get_images_mags()[0].re);}
     dtype* get_image_lines(MIF<dtype> *self)                    {return &(self->get_image_lines()[0].re);}
     int get_num_image_lines(MIF<dtype> *self)                   {return self->get_num_image_lines();}
     int* get_image_lines_lengths(MIF<dtype> *self)              {return self->get_image_lines_lengths();}

@@ -137,7 +137,7 @@ private:
 	std::vector<int> image_lines_lengths;
 
 	std::vector<Complex<T>> images;
-	std::vector<Complex<T>> image_mags;
+	std::vector<Complex<T>> images_mags;
 
 
 
@@ -236,8 +236,8 @@ private:
 		images.clear();
 		images.shrink_to_fit();
 
-		image_mags.clear();
-		image_mags.shrink_to_fit();
+		images_mags.clear();
+		images_mags.shrink_to_fit();
 
 		print_verbose("Done clearing memory.\n\n", verbose, 3);
 		return true;
@@ -1102,7 +1102,7 @@ private:
 	{
 		print_verbose("Finding point images...\n", verbose, 1);
 
-		Complex<T> z1, z2, dz;
+		Complex<T> z1, z2, dz, dwdz, dwdzbar;
 		T f1, f2;
 		TreeNode<T>* node;
 		
@@ -1140,6 +1140,13 @@ private:
 		{
 			images[i] = find_point_image(images[i], kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
 					rectangular, corner, approx, taylor_smooth, w0, v);
+			node = treenode::get_nearest_node(images[i], tree[0]);
+			dwdz = microlensing::d_w_d_z<T>(images[i], kappa_tot, shear, kappa_star,
+					rectangular, corner, approx);
+			dwdzbar = microlensing::d_w_d_zbar<T>(images[i], kappa_tot, shear, theta_star, stars, kappa_star, node,
+					rectangular, corner, approx, taylor_smooth);
+			images_mags.push_back(dwdz);
+			images_mags.push_back(dwdzbar);
 		}
         t_elapsed = stopwatch.stop();
 		print_verbose("Done finding point images.\n\n", verbose, 1);
@@ -1247,6 +1254,15 @@ private:
 				return false;
 			}
 			print_verbose("Done writing point images to file " << fname << "\n", verbose, 1);
+
+			print_verbose("Writing point image magnifications...\n", verbose, 2);
+			fname = outfile_prefix + "mif_images_magnifications" + outfile_type;
+			if (!write_array<Complex<T>>(&images_mags[0], images.size(), 2, fname))
+			{
+				std::cerr << "Error. Unable to write point image magnifications to file " << fname << "\n";
+				return false;
+			}
+			print_verbose("Done writing point image magnifications to file " << fname << "\n", verbose, 1);
 			print_verbose("\n", verbose * write_image_lines, 2);
 		}
 
@@ -1364,6 +1380,7 @@ public:
 	star<T>* get_stars()					{return stars;}
 	Complex<T>* get_images()				{return &images[0];}
 	int get_num_images()					{return images.size();}
+	Complex<T>* get_images_mags()			{return &images_mags[0];}
 	Complex<T>* get_image_lines()			{return image_lines;}
 	int get_num_image_lines()				{return image_lines_lengths.size();}
 	int* get_image_lines_lengths()			{return &image_lines_lengths[0];}
