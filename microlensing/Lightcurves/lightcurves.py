@@ -1,5 +1,9 @@
-import numpy as np
-from scipy.signal import correlate
+try:
+    import cupy as np
+    from cupyx.scipy.signal import correlate
+except ImportError:
+    import numpy as np
+    from scipy.signal import correlate
 
 from microlensing.IPM.ipm import IPM
 from . import util
@@ -35,15 +39,32 @@ def constant_source(ipm: IPM, source, positions = 1, return_pos: bool = False):
     # contrary to what is commonly stated, microlensing is technically a cross 
     # correlation  with the source profile, NOT a convolution
     # the difference only matters for non-radially symmetric sources
-    correlated_map = correlate(ipm.magnifications, source.profile, mode='same') / source.weight
+    if not isinstance(ipm.magnifications, np.ndarray):
+        vals = np.array(ipm.magnifications)
+    else:
+        vals = ipm.magnifications
+    if not isinstance(source.profile, np.ndarray):
+        kernel = np.array(source.profile)
+    else:
+        kernel = source.profile
+    if not isinstance(source.weight, np.ndarray):
+        weight = np.array(source.weight)
+    else:
+        weight = source.weight
+    correlated_map = correlate(vals, kernel, mode='same', method='fft') / weight
     interp = util.interpolated_map(correlated_map, ipm.center, 
                                    ipm.half_length, ipm.num_pixels)
     
     magnifications = interp(positions)
     
-    if return_pos:
-        return magnifications, positions
-    return magnifications
+    try:
+        if return_pos:
+            return magnifications.get(), positions.get()
+        return magnifications.get()
+    except AttributeError:
+        if return_pos:
+            return magnifications, positions
+        return magnifications
 
 def changing_source(ipm: IPM, source, positions = 1, return_pos: bool = False):
     '''
@@ -102,18 +123,38 @@ def changing_source(ipm: IPM, source, positions = 1, return_pos: bool = False):
     x = np.expand_dims(x, -3)
     y = np.expand_dims(y, -3)
 
+    if not isinstance(source.profiles, np.ndarray):
+        kernels = np.array(source.profiles)
+    else:
+        kernels = source.profiles
+    if not isinstance(source.weights, np.ndarray):
+        weights = np.array(source.weights)
+    else:
+        weights = source.weights
+
     # interpolate magnifications on the source profile location grid
     # in the transpose, we want all axes to stay the same 
     # EXCEPT the coordinates need to become the last axis
     # the roll makes sure the transpose moves axes like
     # [0,1,2,3,...n] -> [1,2,3,...n,0]
     # multiply and sum over source profile axes
-    magnifications = (np.sum(source.profiles 
-                             * interp(np.transpose([x, y], 
-                                                   axes=np.roll(np.arange(x.ndim + 1),-1))), 
-                             axis=(-2,-1)) 
-                      / source.weights) # and normalize!
+    new_axes = np.roll(np.arange(x.ndim + 1),-1)
+    try:
+        new_axes = new_axes.get()
+    except AttributeError:
+        pass
     
-    if return_pos:
-        return magnifications, positions
-    return magnifications
+    magnifications = (np.sum(kernels
+                             * interp(np.transpose(np.array([x, y]), 
+                                                   axes=new_axes)), 
+                             axis=(-2,-1)) 
+                      / weights) # and normalize!
+    
+    try:
+        if return_pos:
+            return magnifications.get(), positions.get()
+        return magnifications.get()
+    except AttributeError:
+        if return_pos:
+            return magnifications, positions
+        return magnifications

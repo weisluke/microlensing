@@ -189,7 +189,7 @@ class NCC(object):
         if not self.lib.save(self.obj, self.verbose):
             raise Exception("Error saving NCC")
 
-    def plot_map(self, ax: matplotlib.axes.Axes, **kwargs):
+    def plot(self, ax: matplotlib.axes.Axes, **kwargs):
         if 'vmin' not in kwargs.keys():
             kwargs['vmin'] = np.min(self.num_caustic_crossings) - 0.5
         if 'vmax' not in kwargs.keys():
