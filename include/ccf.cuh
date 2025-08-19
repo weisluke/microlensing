@@ -584,11 +584,8 @@ private:
 		/******************************************************************************
 		array to hold caustic positions
 		******************************************************************************/
-		if (write_caustics)
-		{
-			cudaMallocManaged(&caustics, (num_phi + num_branches) * num_roots * sizeof(Complex<T>));
-			if (cuda_error("cudaMallocManaged(*caustics)", false, __FILE__, __LINE__)) return false;
-		}
+		cudaMallocManaged(&caustics, (num_phi + num_branches) * num_roots * sizeof(Complex<T>));
+		if (cuda_error("cudaMallocManaged(*caustics)", false, __FILE__, __LINE__)) return false;
 
 		/******************************************************************************
 		array to hold caustic strengths
@@ -1122,19 +1119,16 @@ private:
 
 	bool find_caustics(int verbose)
 	{
-		if (write_caustics)
-		{
-			set_threads(threads, 256);
-			set_blocks(threads, blocks, num_roots * (num_phi + num_branches));
+		set_threads(threads, 256);
+		set_blocks(threads, blocks, num_roots * (num_phi + num_branches));
 
-			print_verbose("Finding caustic positions...\n", verbose, 2);
-			stopwatch.start();
-			find_caustics_kernel<T> <<<blocks, threads>>> (ccs, (num_phi + num_branches) * num_roots, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
-				rectangular, corner, approx, taylor_smooth, caustics);
-			if (cuda_error("find_caustics_kernel", true, __FILE__, __LINE__)) return false;
-			t_caustics = stopwatch.stop();
-			print_verbose("Done finding caustic positions. Elapsed time: " << t_caustics << " seconds.\n\n", verbose, 2);
-		}
+		print_verbose("Finding caustic positions...\n", verbose, 2);
+		stopwatch.start();
+		find_caustics_kernel<T> <<<blocks, threads>>> (ccs, (num_phi + num_branches) * num_roots, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+			rectangular, corner, approx, taylor_smooth, caustics);
+		if (cuda_error("find_caustics_kernel", true, __FILE__, __LINE__)) return false;
+		t_caustics = stopwatch.stop();
+		print_verbose("Done finding caustic positions. Elapsed time: " << t_caustics << " seconds.\n\n", verbose, 2);
 
 		return true;
 	}
