@@ -1,4 +1,4 @@
-from . import lif_mif
+from . import lib_mif
 from microlensing.Stars.stars import Stars
 from . import plotting
 
@@ -42,7 +42,7 @@ class MIF(object):
         :param outfile_prefix: prefix to be used in output file names
         :param verbose: verbosity level of messages. must be 0, 1, 2, or 3
         '''
-        self.lib = lif_mif.lib
+        self.lib = lib_mif.lib
 
         self.obj = self.lib.MIF_init()
         self.verbose = verbose
