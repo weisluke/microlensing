@@ -145,15 +145,15 @@ __device__ Complex<T> find_critical_curve_root(int k, Complex<T> z, T kappa, T g
 	TreeNode<T>* node = treenode::get_nearest_node(z, root);
 
 	Complex<T> f0 = parametric_critical_curve<T>(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth, phi);
-	T d_w_dz = microlensing::d_w_d_z<T>(z, kappa, gamma, kappastar, rectangular, corner, approx);
+	T d_w_d_z = microlensing::d_w_d_z<T>(z, kappa, gamma, kappastar, rectangular, corner, approx);
 
 	/******************************************************************************
 	if 1/mu < 10^-9, return same position
 	the value of 1/mu depends on the value of f0
 	this check ensures that the maximum possible value of 1/mu is less than desired
 	******************************************************************************/
-	if (fabs(f0.abs() * (f0.abs() + 2 * d_w_dz)) < static_cast<T>(0.000000001) &&
-		fabs(f0.abs() * (f0.abs() - 2 * d_w_dz)) < static_cast<T>(0.000000001))
+	if (fabs(f0.abs() * (f0.abs() + 2 * d_w_d_z)) < static_cast<T>(0.000000001) &&
+		fabs(f0.abs() * (f0.abs() - 2 * d_w_d_z)) < static_cast<T>(0.000000001))
 	{
 		return z;
 	}
@@ -403,10 +403,10 @@ __global__ void find_errors_kernel(Complex<T>* z, int nroots, T kappa, T gamma, 
 				******************************************************************************/
 				Complex<T> f0 = parametric_critical_curve<T>(z[center + sgn * j * nroots + a], kappa, gamma, theta, stars, kappastar, node,
 					rectangular, corner, approx, taylor_smooth,phi0 + sgn * dphi);
-				T d_w_dz = microlensing::d_w_d_z<T>(z[center + sgn * j * nroots + a], kappa, gamma, kappastar, rectangular, corner, approx);
+				T d_w_d_z = microlensing::d_w_d_z<T>(z[center + sgn * j * nroots + a], kappa, gamma, kappastar, rectangular, corner, approx);
 
-				T e1 = fabs(f0.abs() * (f0.abs() + 2 * d_w_dz));
-				T e2 = fabs(f0.abs() * (f0.abs() - 2 * d_w_dz));
+				T e1 = fabs(f0.abs() * (f0.abs() + 2 * d_w_d_z));
+				T e2 = fabs(f0.abs() * (f0.abs() - 2 * d_w_d_z));
 
 				/******************************************************************************
 				return maximum possible error in 1/mu at root position
