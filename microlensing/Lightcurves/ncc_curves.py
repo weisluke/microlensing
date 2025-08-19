@@ -69,7 +69,7 @@ def constant_source(ncc: NCC, source, positions = 1, return_pos: bool = False):
     try:
         if return_pos:
             return ncc_min.get(), ncc_max.get(), positions.get()
-        return ncc_min.get(), ncc_max.get
+        return ncc_min.get(), ncc_max.get()
     except AttributeError:
         if return_pos:
             return ncc_min, ncc_max, positions
