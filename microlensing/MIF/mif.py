@@ -1,5 +1,6 @@
 from . import lif_mif
 from microlensing.Stars.stars import Stars
+from . import plotting
 
 import numpy as np
 import matplotlib.axes
@@ -258,6 +259,11 @@ class MIF(object):
         return (self.y1, self.y2)
 
     @property
+    def z0(self):
+        return (self.y1 / (1 - self.kappa_tot + self.shear), 
+                self.y2 / (1 - self.kappa_tot - self.shear))
+
+    @property
     def v1(self):
         return self.lib.get_v1(self.obj)
     
@@ -344,7 +350,41 @@ class MIF(object):
     def run(self):
         if not self.lib.run(self.obj, self.verbose):
             raise Exception("Error running MIF")
+        
+        self.images = np.ctypeslib.as_array(self.lib.get_images(self.obj),
+                                            shape=(self.lib.get_num_images(self.obj),2)).copy()
+        self.images_inv_mags = np.ctypeslib.as_array(self.lib.get_images_mags(self.obj),
+                                                     shape=(self.lib.get_num_images(self.obj),2,2)).copy()
+        
+        m11 = self.images_inv_mags[:,0,0] + self.images_inv_mags[:,1,0]
+        m12 = self.images_inv_mags[:,1,1] - self.images_inv_mags[:,0,1]
+        m21 = self.images_inv_mags[:,0,1] + self.images_inv_mags[:,1,1]
+        m22 = self.images_inv_mags[:,0,0] - self.images_inv_mags[:,1,0]
 
+        self.images_inv_mags = np.transpose([[m11,m12],[m21,m22]],(2,0,1))
+        self.images_mags = 1 / np.linalg.det(self.images_inv_mags)
+        
+        if self.write_image_lines:
+            n_image_lines = self.lib.get_num_image_lines(self.obj)
+            image_lines_lengths = np.ctypeslib.as_array(self.lib.get_image_lines_lengths(self.obj),
+                                                        shape=(n_image_lines,)).copy()
+            
+            self.image_lines = np.ctypeslib.as_array(self.lib.get_image_lines(self.obj),
+                                                    shape=(self.lib.get_total_image_lines_length(self.obj),2)).copy()
+            self.image_lines = np.split(self.image_lines, np.cumsum(image_lines_lengths))
+            
+            self.source_lines = np.ctypeslib.as_array(self.lib.get_source_lines(self.obj),
+                                                      shape=(self.lib.get_total_image_lines_length(self.obj),2)).copy()
+            self.source_lines = np.split(self.source_lines, np.cumsum(image_lines_lengths))
+            
+            self.image_lines_mags = np.ctypeslib.as_array(self.lib.get_image_lines_mags(self.obj),
+                                                          shape=(self.lib.get_total_image_lines_length(self.obj),)).copy()
+            self.image_lines_mags = np.split(self.image_lines_mags, np.cumsum(image_lines_lengths))
+        else:
+            self.image_Lines = None
+            self.source_lines = None
+            self.image_lines_mags = None
+        
         self.stars = Stars(np.ctypeslib.as_array(self.lib.get_stars(self.obj),
                                                  shape=(self.num_stars, 3)).copy(),
                            self.rectangular, self.corner, self.theta_star)
@@ -353,5 +393,23 @@ class MIF(object):
         if not self.lib.save(self.obj, self.verbose):
             raise Exception("Error saving MIF")
 
-    def plot(self, ax: matplotlib.axes.Axes, **kwargs):
-        pass
+    def plot(self, ax: matplotlib.axes.Axes, 
+             r=1, is_ellipse=True, log_area=False, mu_min=10**-3,
+             **kwargs):
+        if 's' not in kwargs.keys():
+            kwargs['s'] = 1
+        if 'facecolor' not in kwargs.keys() and 'fc' not in kwargs.keys():
+            kwargs['facecolor'] = 'black'
+        if 'edgecolor' not in kwargs.keys() and 'ec' not in kwargs.keys():
+            kwargs['edgecolor'] = 'black'
+
+        ax.add_collection(plotting.Stars(self.stars.positions, kwargs['s'] * self.stars.masses,
+                                         minmass = np.min(self.stars.masses),
+                                         maxmass = np.max(self.stars.masses),
+                                         facecolor=kwargs['facecolor'], edgecolor=kwargs['edgecolor']))
+        
+        ax.add_collection(plotting.Images(self.images, self.images_inv_mags,
+                                          r, is_ellipse, log_area, mu_min))
+        
+        ax.set_xlim([np.min(self.images[:,0]), np.max(self.images[:,0])])
+        ax.set_ylim([np.min(self.images[:,1]), np.max(self.images[:,1])])

@@ -27,6 +27,14 @@ class Stars():
         return self.stars.shape[0]
 
     @property
+    def positions(self):
+        return self.stars[:,:2]
+
+    @property
+    def masses(self):
+        return self.stars[:,2]
+
+    @property
     def mean_mass_actual(self):
         return np.mean(self.stars[:, 2])
 
