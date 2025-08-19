@@ -1,51 +1,13 @@
 #pragma once
 
 #include "complex.cuh"
+#include "util/math_util.cuh"
 
 #include <numbers>
 
 
-/******************************************************************************
-Heaviside Step Function
-
-\param x -- number to evaluate
-
-\return 1 if x >= 0, 0 if x < 0
-******************************************************************************/
-template <typename T>
-__device__ T heaviside(T x)
+namespace microlensing
 {
-	if (x >= 0)
-	{
-		return 1;
-	}
-	else
-	{
-		return 0;
-	}
-}
-
-/******************************************************************************
-2-Dimensional Boxcar Function
-
-\param z -- complex number to evalulate
-\param corner -- corner of the rectangular region
-
-\return 1 if z lies within or on the border of the rectangle defined by corner,
-		0 if it is outside
-******************************************************************************/
-template <typename T>
-__device__ T boxcar(Complex<T> z, Complex<T> corner)
-{
-	if (-corner.re <= z.re && z.re <= corner.re && -corner.im <= z.im && z.im <= corner.im)
-	{
-		return 1;
-	}
-	else
-	{
-		return 0;
-	}
-}
 
 /******************************************************************************
 calculate the deflection angle due to smooth matter
@@ -60,7 +22,7 @@ calculate the deflection angle due to smooth matter
 \return alpha_smooth
 ******************************************************************************/
 template <typename T>
-__device__ Complex<T> alpha_smooth(Complex<T> z, T kappastar, int rectangular, Complex<T> corner, int approx, int taylor_smooth)
+__host__ __device__ Complex<T> alpha_smooth(Complex<T> z, T kappastar, int rectangular, Complex<T> corner, int approx, int taylor_smooth)
 {
 	Complex<T> a_smooth;
 
@@ -139,7 +101,7 @@ smooth matter
 \return d_alpha_smooth_d_z
 ******************************************************************************/
 template <typename T>
-__device__ T d_alpha_smooth_d_z(Complex<T> z, T kappastar, int rectangular, Complex<T> corner, int approx)
+__host__ __device__ T d_alpha_smooth_d_z(Complex<T> z, T kappastar, int rectangular, Complex<T> corner, int approx)
 {
 	T d_a_smooth_d_z;
 
@@ -183,7 +145,7 @@ smooth matter
 \return d_alpha_smooth_d_zbar
 ******************************************************************************/
 template <typename T>
-__device__ Complex<T> d_alpha_smooth_d_zbar(Complex<T> z, T kappastar, int rectangular, Complex<T> corner, int approx, int taylor_smooth)
+__host__ __device__ Complex<T> d_alpha_smooth_d_zbar(Complex<T> z, T kappastar, int rectangular, Complex<T> corner, int approx, int taylor_smooth)
 {
 	Complex<T> d_a_smooth_d_zbar;
 
@@ -249,7 +211,7 @@ due to smooth matter
 \return d2_alpha_smooth_d_zbar2
 ******************************************************************************/
 template <typename T>
-__device__ Complex<T> d2_alpha_smooth_d_zbar2(Complex<T> z, T kappastar, int rectangular, Complex<T> corner, int approx, int taylor_smooth)
+__host__ __device__ Complex<T> d2_alpha_smooth_d_zbar2(Complex<T> z, T kappastar, int rectangular, Complex<T> corner, int approx, int taylor_smooth)
 {
 	Complex<T> d2_a_smooth_d_zbar2;
 
@@ -298,5 +260,7 @@ __device__ Complex<T> d2_alpha_smooth_d_zbar2(Complex<T> z, T kappastar, int rec
 	}
 
 	return d2_a_smooth_d_zbar2;
+}
+
 }
 

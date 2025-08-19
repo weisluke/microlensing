@@ -13,7 +13,7 @@
 #include "star.cuh"
 #include "stopwatch.hpp"
 #include "tree_node.cuh"
-#include "util.cuh"
+#include "util/util.cuh"
 
 #include <curand_kernel.h>
 #include <thrust/execution_policy.h> //for thrust::device

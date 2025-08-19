@@ -2,7 +2,8 @@
 
 #include "array_functions.cuh"
 #include "complex.cuh"
-#include "util.cuh"
+#include "util/math_util.cuh"
+#include "util/util.cuh"
 
 #include <cstdint> //for std::uintmax_t
 #include <filesystem>
@@ -12,21 +13,6 @@
 #include <string>
 #include <system_error> //for std::error_code
 
-
-/******************************************************************************
-return the sign of a number
-
-\param val -- number to find the sign of
-
-\return -1, 0, or 1
-******************************************************************************/
-template <typename T>
-__device__ T sgn(T val)
-{
-	if (val < -0) return -1;
-	if (val > 0) return 1;
-	return 0;
-}
 
 /******************************************************************************
 determine whether a point lies within a rectangular region centered on the
@@ -223,7 +209,7 @@ __global__ void find_num_caustic_crossings_kernel(Complex<T>* caustics, int nrow
 					imax *= (((ncols - 1) - 1) / blockDim.y + 1);
 					if (p * 100 / imax > (p - 1) * 100 / imax)
 					{
-						device_print_progress(verbose, p, imax);
+						print_progress(verbose, p, imax);
 					}
 				}
 				continue;
@@ -335,7 +321,7 @@ __global__ void find_num_caustic_crossings_kernel(Complex<T>* caustics, int nrow
 				imax *= (((ncols - 1) - 1) / blockDim.y + 1);
 				if (p * 100 / imax > (p - 1) * 100 / imax)
 				{
-					device_print_progress(verbose, p, imax);
+					print_progress(verbose, p, imax);
 				}
 			}
 		}

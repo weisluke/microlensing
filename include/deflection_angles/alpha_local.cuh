@@ -4,6 +4,9 @@
 #include "tree_node.cuh"
 
 
+namespace microlensing
+{
+
 /******************************************************************************
 calculate the deflection angle within a node due to far away stars
 
@@ -12,11 +15,11 @@ calculate the deflection angle within a node due to far away stars
 \param node -- pointer to node
 
 \return alpha_local = theta^2 * sum(i * a_i * (z - z_0) ^ (i - 1))_bar
-           where a_i are coefficients of the lensing potential in units of the
-           node size
+		where a_i are coefficients of the lensing potential in units of the
+		node size
 ******************************************************************************/
 template <typename T>
-__device__ Complex<T> alpha_local(Complex<T> z, T theta, TreeNode<T>* node)
+__host__ __device__ Complex<T> alpha_local(Complex<T> z, T theta, TreeNode<T>* node)
 {
 	Complex<T> a_local_bar;
 	Complex<T> dz = (z - node->center) / node->half_length;
@@ -44,12 +47,12 @@ node due to far away stars
 \param node -- pointer to node
 
 \return d_alpha_local_d_zbar = theta^2 
- 		   * sum(i * (i-1) * a_i * (z - z_0) ^ (i - 2))_bar
-		   where a_i are coefficients of the lensing potential in units of the
-		   node size
+		* sum(i * (i-1) * a_i * (z - z_0) ^ (i - 2))_bar
+		where a_i are coefficients of the lensing potential in units of the
+		node size
 ******************************************************************************/
 template <typename T>
-__device__ Complex<T> d_alpha_local_d_zbar(Complex<T> z, T theta, TreeNode<T>* node)
+__host__ __device__ Complex<T> d_alpha_local_d_zbar(Complex<T> z, T theta, TreeNode<T>* node)
 {
 	Complex<T> d_a_local_bar_dz;
 	Complex<T> dz = (z - node->center) / node->half_length;
@@ -77,12 +80,12 @@ within a node due to far away stars
 \param node -- pointer to node
 
 \return d2_alpha_local_d_zbar2 = theta^2 
- 		   * sum(i * (i-1) * (i - 2) * a_i * (z - z_0) ^ (i - 3))_bar
-		   where a_i are coefficients of the lensing potential in units of the
-		   node size
+		* sum(i * (i-1) * (i - 2) * a_i * (z - z_0) ^ (i - 3))_bar
+		where a_i are coefficients of the lensing potential in units of the
+		node size
 ******************************************************************************/
 template <typename T>
-__device__ Complex<T> d2_alpha_local_d_zbar2(Complex<T> z, T theta, TreeNode<T>* node)
+__host__ __device__ Complex<T> d2_alpha_local_d_zbar2(Complex<T> z, T theta, TreeNode<T>* node)
 {
 	Complex<T> d2_a_local_bar_dz2;
 	Complex<T> dz = (z - node->center) / node->half_length;
@@ -99,5 +102,7 @@ __device__ Complex<T> d2_alpha_local_d_zbar2(Complex<T> z, T theta, TreeNode<T>*
 	d2_a_local_bar_dz2 /= node->half_length * node->half_length * node->half_length;
 
 	return d2_a_local_bar_dz2.conj();
+}
+
 }
 

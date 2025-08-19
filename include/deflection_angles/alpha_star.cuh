@@ -5,6 +5,9 @@
 #include "tree_node.cuh"
 
 
+namespace microlensing
+{
+
 /******************************************************************************
 calculate the deflection angle within a node due to nearby stars
 
@@ -16,7 +19,7 @@ calculate the deflection angle within a node due to nearby stars
 \return alpha_star = theta^2 * sum(m_i / (z - z_i))_bar
 ******************************************************************************/
 template <typename T>
-__device__ Complex<T> alpha_star(Complex<T> z, T theta, star<T>* stars, TreeNode<T>* node)
+__host__ __device__ Complex<T> alpha_star(Complex<T> z, T theta, star<T>* stars, TreeNode<T>* node)
 {
 	Complex<T> a_star_bar;
 
@@ -52,7 +55,7 @@ node due to nearby stars
 \return d_alpha_star_d_zbar = -theta^2 * sum(m_i / (z - z_i)^2)_bar
 ******************************************************************************/
 template <typename T>
-__device__ Complex<T> d_alpha_star_d_zbar(Complex<T> z, T theta, star<T>* stars, TreeNode<T>* node)
+__host__ __device__ Complex<T> d_alpha_star_d_zbar(Complex<T> z, T theta, star<T>* stars, TreeNode<T>* node)
 {
 	Complex<T> d_a_star_bar_d_z;
 
@@ -88,7 +91,7 @@ within a node due to nearby stars
 \return d2_alpha_star / d_zbar2 = 2 * theta^2 * sum(m_i / (z - z_i)^3)_bar
 ******************************************************************************/
 template <typename T>
-__device__ Complex<T> d2_alpha_star_d_zbar2(Complex<T> z, T theta, star<T>* stars, TreeNode<T>* node)
+__host__ __device__ Complex<T> d2_alpha_star_d_zbar2(Complex<T> z, T theta, star<T>* stars, TreeNode<T>* node)
 {
 	Complex<T> d2_a_star_bar_d_z2;
 
@@ -112,5 +115,7 @@ __device__ Complex<T> d2_alpha_star_d_zbar2(Complex<T> z, T theta, star<T>* star
 	d2_a_star_bar_d_z2 *= 2 * theta * theta;
 
 	return d2_a_star_bar_d_z2.conj();
+}
+
 }
 
