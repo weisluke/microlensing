@@ -93,19 +93,10 @@ template <typename T>
 __device__ T mu_length_scale(Complex<T> z, T kappa, T gamma, T theta, star<T>* stars, T kappastar, TreeNode<T>* node,
 	int rectangular, Complex<T> corner, int approx, int taylor_smooth)
 {
-	Complex<T> d_a_star_d_zbar = d_alpha_star_d_zbar(z, theta, stars, node);
-	Complex<T> d_a_local_d_zbar = d_alpha_local_d_zbar(z, theta, node);
-	T d_a_smooth_d_z = d_alpha_smooth_d_z(z, kappastar, rectangular, corner, approx);
-	Complex<T> d_a_smooth_d_zbar = d_alpha_smooth_d_zbar(z, kappastar, rectangular, corner, approx, taylor_smooth);
+	T d_w_d_z = microlensing::d_w_d_z<T>(z, kappa, gamma, kappastar, rectangular, corner, approx);
+	Complex<T> d_w_d_zbar = microlensing::d_w_d_zbar<T>(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
 
-	T d_w_d_z = 1 - kappa - d_a_smooth_d_z;
-	Complex<T> d_w_d_zbar = gamma - d_a_star_d_zbar - d_a_local_d_zbar - d_a_smooth_d_zbar;
-
-	Complex<T> d2_a_star_d_zbar2 = d2_alpha_star_d_zbar2(z, theta, stars, node);
-	Complex<T> d2_a_local_d_zbar2 = d2_alpha_local_d_zbar2(z, theta, node);
-	Complex<T> d2_a_smooth_d_zbar2 = d2_alpha_smooth_d_zbar2(z, kappastar, rectangular, corner, approx, taylor_smooth);
-
-	Complex<T> d2_w_d_zbar2 = -d2_a_star_d_zbar2 - d2_a_local_d_zbar2 - d2_a_smooth_d_zbar2;
+	Complex<T> d2_w_d_zbar2 = microlensing::d2_w_d_zbar2<T>(z, kappa, gamma, theta, stars, kappastar, node, rectangular, corner, approx, taylor_smooth);
 
 	Complex<T> critical_curve_tangent = Complex<T>(0, -2) * d_w_d_zbar.conj() * d2_w_d_zbar2;
 	Complex<T> caustic_tangent = d_w_d_z * critical_curve_tangent + d_w_d_zbar * critical_curve_tangent.conj();
