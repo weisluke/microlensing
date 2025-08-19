@@ -119,6 +119,30 @@ def read_array(fname: str, dtype, is_complex: bool = False):
     return dat
 
 
+def read_ragged_array(fname: str, dtype, is_complex: bool = False):
+    '''
+    Read in a binary file of a ragged array of numbers
+
+    :param fname: name of the file to read
+    :param dtype: type for the array
+    :param is_complex: bool, whether the numbers are complex or not
+                       default is False
+    '''
+    with open(fname) as f:
+        res = []
+        n_members = np.fromfile(f, dtype=np.int32, count=1)[0]
+        for i in range(n_members):
+            n = np.fromfile(f, dtype=np.int32, count=1)[0]
+            if is_complex:
+                dat = np.fromfile(f, dtype=dtype, count=n * 2)
+                dat = dat.reshape(n, 2)
+            else:
+                dat = np.fromfile(f, dtype=dtype, count=n)
+            res.append(dat)
+
+    return res
+
+
 def read_hist(fname: str):
     '''
     Read in a whitespace delimited text file of integer

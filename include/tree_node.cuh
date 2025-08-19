@@ -527,7 +527,7 @@ namespace treenode
     \return pointer to nearest node
     ******************************************************************************/
     template <typename T>
-    __device__ TreeNode<T>* get_nearest_node(Complex<T> z, TreeNode<T>* root)
+    __host__ __device__ TreeNode<T>* get_nearest_node(Complex<T> z, TreeNode<T>* root)
     {
         TreeNode<T>* node = root;
         while (node->num_children > 0)

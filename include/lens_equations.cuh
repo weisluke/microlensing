@@ -245,4 +245,82 @@ __host__ __device__ Complex<T> d_inv_mu_d_zbar(Complex<T> z, T kappa, T gamma, T
 	return -dwdzbar.conj() * d2wdzbar2;
 }
 
+/******************************************************************************
+macro lens equation from image plane to source plane
+
+\param z -- complex image plane position
+\param kappa -- total convergence
+\param gamma -- external shear
+
+\return w = z - a_macro
+******************************************************************************/
+template <typename T>
+__host__ __device__ Complex<T> macro_w(Complex<T> z, T kappa, T gamma)
+{
+    Complex<T> a_macro = alpha_macro<T>(z, kappa, gamma);
+	return z - a_macro;
+}
+
+/******************************************************************************
+derivative of the macro lens equation with respect to z
+
+\param z -- complex image plane position
+\param kappa -- total convergence
+\param gamma -- external shear
+
+\return w = z - a_macro
+******************************************************************************/
+template <typename T>
+__host__ __device__ T d_macro_w_d_z(Complex<T> z, T kappa, T gamma)
+{
+    T d_a_macro_d_z = d_alpha_macro_d_z<T>(z, kappa, gamma);
+	return 1 - d_a_macro_d_z;
+}
+
+/******************************************************************************
+derivative of the macro lens equation with respect to zbar
+
+\param z -- complex image plane position
+\param kappa -- total convergence
+\param gamma -- external shear
+
+\return w = z - a_macro
+******************************************************************************/
+template <typename T>
+__host__ __device__ Complex<T> d_macro_w_d_zbar(Complex<T> z, T kappa, T gamma)
+{
+    T d_a_macro_d_zbar = d_alpha_macro_d_zbar<T>(z, kappa, gamma);
+
+	return -d_a_macro_d_zbar;
+}
+
+/******************************************************************************
+macro-inverse magnification
+
+\param z -- complex image plane position
+\param kappa -- total convergence
+\param gamma -- external shear
+******************************************************************************/
+template <typename T>
+__host__ __device__ T macro_inv_mu(Complex<T> z, T kappa, T gamma)
+{
+    T a = d_macro_w_d_z<T>(z, kappa, gamma);
+    Complex<T> b = d_macro_w_d_zbar<T>(z, kappa, gamma);
+
+	return a * a - b.abs() * b.abs();
+}
+
+/******************************************************************************
+macro-magnification
+
+\param z -- complex image plane position
+\param kappa -- total convergence
+\param gamma -- external shear
+******************************************************************************/
+template <typename T>
+__host__ __device__ T macro_mu(Complex<T> z, T kappa, T gamma)
+{
+    return 1 / macro_inv_mu(z, kappa, gamma);
+}
+
 }

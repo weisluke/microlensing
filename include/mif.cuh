@@ -3,8 +3,8 @@
 #include "array_functions.cuh"
 #include "binomial_coefficients.cuh"
 #include "complex.cuh"
-#include "ccf_functions.cuh"
 #include "fmm.cuh"
+#include "mif_functions.cuh"
 #include "mass_functions.cuh"
 #include "mass_functions/equal.cuh"
 #include "mass_functions/kroupa.cuh"
@@ -13,12 +13,16 @@
 #include "star.cuh"
 #include "stopwatch.hpp"
 #include "tree_node.cuh"
+#include "util/math_util.cuh"
 #include "util/util.cuh"
 
 #include <curand_kernel.h>
 #include <thrust/execution_policy.h> //for thrust::device
-#include <thrust/extrema.h> //for thrust::max_element
+#include <thrust/extrema.h> //for thrust::min_element, thrust::max_element
 #include <thrust/fill.h> //for thrust::fill
+#include <thrust/functional.h> //for thrust::plus
+#include <thrust/transform.h> //for thrust::transform
+#include <thrust/universal_vector.h> //for thrust::universal_vector
 
 #include <algorithm> //for std::min and std::max
 #include <chrono> //for setting random seed with clock
@@ -28,12 +32,13 @@
 #include <limits> //for std::numeric_limits
 #include <memory> //for std::shared_ptr
 #include <numbers>
+#include <numeric> //for std::reduce
 #include <string>
 #include <vector>
 
 
 template <typename T>
-class CCF
+class MIF
 {
 
 public:
@@ -48,18 +53,18 @@ public:
 	T m_solar = static_cast<T>(1);
 	T m_lower = static_cast<T>(0.01);
 	T m_upper = static_cast<T>(50);
+	T light_loss = static_cast<T>(0.001); //average fraction of light lost due to scatter by the microlenses in the large deflection angle limit
 	int rectangular = 0; //whether star field is rectangular or circular
 	int approx = 1; //whether terms for alpha_smooth are exact or approximate
 	T safety_scale = static_cast<T>(1.37); //ratio of the size of the star field to the radius of convergence for alpha_smooth
-	int num_stars = 137;
 	std::string starfile = "";
-	int num_phi = 100;
-	int num_branches = 1;
+	Complex<T> w0 = Complex<T>();
+	Complex<T> v = Complex<T>(2, 3);
 	int random_seed = 0;
 	int write_stars = 1;
-	int write_critical_curves = 1;
-	int write_caustics = 1;
-	int write_mu_length_scales = 0;
+	int write_images = 1;
+	int write_image_lines = 0;
+	int write_magnifications = 1;
 	std::string outfile_prefix = "./";
 
 
@@ -82,9 +87,6 @@ private:
 	******************************************************************************/
 	Stopwatch stopwatch;
 	double t_elapsed;
-	double t_init_roots;
-	double t_ccs;
-	double t_caustics;
 
 	/******************************************************************************
 	derived variables
@@ -94,6 +96,7 @@ private:
 	T mean_mass2;
 	T mean_mass2_ln_mass;
 
+	int num_stars;
 	T kappa_star_actual;
 	T m_lower_actual;
 	T m_upper_actual;
@@ -102,6 +105,11 @@ private:
 	T mean_mass2_ln_mass_actual;
 
 	T mu_ave;
+	/******************************************************************************
+	maximum source plane size of the region of images visible for a macro-image
+	which on average loses no more than the desired amount of flux
+	******************************************************************************/
+	T max_r;
 	Complex<T> corner;
 	int taylor_smooth;
 
@@ -114,9 +122,6 @@ private:
 	std::vector<TreeNode<T>*> tree; //members of the tree will need their memory freed
 	std::vector<int> num_nodes;
 
-	int num_roots;
-	T max_error;
-
 	/******************************************************************************
 	dynamic memory
 	******************************************************************************/
@@ -126,13 +131,13 @@ private:
 
 	int* binomial_coeffs = nullptr;
 
-	Complex<T>* ccs_init = nullptr;
-	Complex<T>* ccs = nullptr;
-	bool* fin = nullptr;
-	T* errs = nullptr;
-	int* has_nan = nullptr;
-	Complex<T>* caustics = nullptr;
-	T* mu_length_scales = nullptr;
+	Complex<T>* image_lines = nullptr;
+	Complex<T>* source_lines = nullptr;
+	T* image_lines_mags = nullptr;
+	std::vector<int> image_lines_lengths;
+
+	std::vector<Complex<T>> images;
+	std::vector<Complex<T>> images_mags;
 
 
 
@@ -206,40 +211,33 @@ private:
 		if (return_on_error && cuda_error("cudaFree(*binomial_coeffs)", false, __FILE__, __LINE__)) return false;
 		binomial_coeffs = nullptr;
 		
-		cudaFree(ccs_init);
-		if (return_on_error && cuda_error("cudaFree(*ccs_init)", false, __FILE__, __LINE__)) return false;
-		ccs_init = nullptr;
-		
-		cudaFree(ccs);
-		if (return_on_error && cuda_error("cudaFree(*ccs)", false, __FILE__, __LINE__)) return false;
-		ccs = nullptr;
-		
-		cudaFree(fin);
-		if (return_on_error && cuda_error("cudaFree(*fin)", false, __FILE__, __LINE__)) return false;
-		fin = nullptr;
-		
-		cudaFree(errs);
-		if (return_on_error && cuda_error("cudaFree(*errs)", false, __FILE__, __LINE__)) return false;
-		errs = nullptr;
-		
-		cudaFree(has_nan);
-		if (return_on_error && cuda_error("cudaFree(*has_nan)", false, __FILE__, __LINE__)) return false;
-		has_nan = nullptr;
-		
-		cudaFree(caustics);
-		if (return_on_error && cuda_error("cudaFree(*caustics)", false, __FILE__, __LINE__)) return false;
-		caustics = nullptr;
-		
-		cudaFree(mu_length_scales);
-		if (return_on_error && cuda_error("cudaFree(*mu_length_scales)", false, __FILE__, __LINE__)) return false;
-		mu_length_scales = nullptr;
-
 		for	(int i = 0; i < tree.size(); i++) //for every level in the tree, free the memory for the nodes
 		{
 			cudaFree(tree[i]);
 			if (return_on_error && cuda_error("cudaFree(*tree[i])", false, __FILE__, __LINE__)) return false;
 			tree[i] = nullptr;
 		}
+		
+		cudaFree(image_lines);
+		if (return_on_error && cuda_error("cudaFree(*image_lines)", false, __FILE__, __LINE__)) return false;
+		image_lines = nullptr;
+		
+		cudaFree(source_lines);
+		if (return_on_error && cuda_error("cudaFree(*source_lines)", false, __FILE__, __LINE__)) return false;
+		source_lines = nullptr;
+		
+		cudaFree(image_lines_mags);
+		if (return_on_error && cuda_error("cudaFree(*image_lines_mags)", false, __FILE__, __LINE__)) return false;
+		image_lines_mags = nullptr;
+
+		image_lines_lengths.clear();
+		image_lines_lengths.shrink_to_fit();
+
+		images.clear();
+		images.shrink_to_fit();
+
+		images_mags.clear();
+		images_mags.shrink_to_fit();
 
 		print_verbose("Done clearing memory.\n\n", verbose, 3);
 		return true;
@@ -297,6 +295,17 @@ private:
 			return false;
 		}
 
+		if (light_loss < std::numeric_limits<T>::min())
+		{
+			std::cerr << "Error. light_loss must be >= " << std::numeric_limits<T>::min() << "\n";
+			return false;
+		}
+		else if (light_loss > 0.01)
+		{
+			std::cerr << "Error. light_loss must be <= 0.01\n";
+			return false;
+		}
+
 		if (starfile == "" && rectangular != 0 && rectangular != 1)
 		{
 			std::cerr << "Error. rectangular must be 1 (rectangular) or 0 (circular).\n";
@@ -313,35 +322,11 @@ private:
 		if the alpha_smooth comes from a rectangular mass sheet, finding the caustics
 		requires a Taylor series approximation to alpha_smooth. a bound on the error of
 		that series necessitates having some minimum cutoff here for the ratio of the
-		size of the star field to the radius of convergence for alpha_smooth
+		size of the star field to the size of the shooting rectangle
 		******************************************************************************/
 		if (safety_scale < 1.1)
 		{
 			std::cerr << "Error. safety_scale must be >= 1.1\n";
-			return false;
-		}
-		
-		if (num_stars < 1)
-		{
-			std::cerr << "Error. num_stars must be an integer > 0\n";
-			return false;
-		}
-
-		if (num_phi < 1 || num_phi % 2 != 0)
-		{
-			std::cerr << "Error. num_phi must be an even integer > 0\n";
-			return false;
-		}
-
-		if (num_branches < 1)
-		{
-			std::cerr << "Error. num_branches must be an integer > 0\n";
-			return false;
-		}
-
-		if (num_phi % (2 * num_branches) != 0)
-		{
-			std::cerr << "Error. num_phi must be a multiple of 2 * num_branches\n";
 			return false;
 		}
 
@@ -351,38 +336,38 @@ private:
 			return false;
 		}
 
-		if (write_critical_curves != 0 && write_critical_curves != 1)
+		if (write_images != 0 && write_images != 1)
 		{
-			std::cerr << "Error. write_critical_curves must be 1 (true) or 0 (false).\n";
+			std::cerr << "Error. write_images must be 1 (true) or 0 (false).\n";
 			return false;
 		}
 
-		if (write_caustics != 0 && write_caustics != 1)
+		if (write_image_lines != 0 && write_image_lines != 1)
 		{
-			std::cerr << "Error. write_caustics must be 1 (true) or 0 (false).\n";
+			std::cerr << "Error. write_image_lines must be 1 (true) or 0 (false).\n";
 			return false;
 		}
 
-		if (write_mu_length_scales != 0 && write_mu_length_scales != 1)
+		if (write_magnifications != 0 && write_magnifications != 1)
 		{
-			std::cerr << "Error. write_mu_length_scales must be 1 (true) or 0 (false).\n";
+			std::cerr << "Error. write_magnifications must be 1 (true) or 0 (false).\n";
 			return false;
 		}
 
 
 		print_verbose("Done checking input parameters.\n\n", verbose, 3);
-		
+
 		return true;
 	}
-	
+
 	bool calculate_derived_params(int verbose)
 	{
 		print_verbose("Calculating derived parameters...\n", verbose, 3);
 		stopwatch.start();
 
 		/******************************************************************************
-		if star file is not specified, set the mass function, mean_mass, mean_mass2,
-		and mean_mass2_ln_mass
+		if star file is not specified, set the mass function, mean_mass, and
+		mean_mass2
 		******************************************************************************/
 		if (starfile == "")
 		{
@@ -408,7 +393,7 @@ private:
 		/******************************************************************************
 		if star file is specified, check validity of values and set num_stars,
 		rectangular, corner, theta_star, stars, kappa_star, m_lower, m_upper,
-		mean_mass, mean_mass2, and mean_mass2_ln_mass based on star information
+		mean_mass, and mean_mass2 based on star information
 		******************************************************************************/
 		else
 		{
@@ -444,24 +429,67 @@ private:
 		******************************************************************************/
 		set_param("mu_ave", mu_ave, 1 / ((1 - kappa_tot) * (1 - kappa_tot) - shear * shear), verbose);
 
+		set_param("max_r", max_r, theta_star * std::sqrt(kappa_star * mean_mass2 / (mean_mass * light_loss)), verbose);
+
+
 		/******************************************************************************
-		if stars are not drawn from external file, calculate corner of the star field
+		if stars are not drawn from external file, calculate final number of stars to
+		use and corner of the star field
 		******************************************************************************/
 		if (starfile == "")
 		{
-			corner = Complex<T>(1 / std::abs(1 - kappa_tot + shear), 1 / std::abs(1 - kappa_tot - shear));
+			corner = Complex<T>((std::abs(w0.re) + max_r) / std::abs(1 - kappa_tot + shear), 
+								(std::abs(w0.im) + max_r) / std::abs(1 - kappa_tot - shear));
 
 			if (rectangular)
 			{
+				num_stars = std::ceil(
+					safety_scale * 2 * corner.re
+					* safety_scale * 2 * corner.im
+					* kappa_star / (std::numbers::pi_v<T> * theta_star * theta_star * mean_mass)
+					);
+				set_param("num_stars", num_stars, num_stars, verbose);
+
 				corner = Complex<T>(std::sqrt(corner.re / corner.im), std::sqrt(corner.im / corner.re));
 				corner *= std::sqrt(std::numbers::pi_v<T> * theta_star * theta_star * num_stars * mean_mass / (4 * kappa_star));
 				set_param("corner", corner, corner, verbose);
 			}
 			else
 			{
+				num_stars = std::ceil(
+					safety_scale * corner.abs()
+					* safety_scale * corner.abs()
+					* kappa_star / (theta_star * theta_star * mean_mass)
+					);
+				set_param("num_stars", num_stars, num_stars, verbose);
+
 				corner = corner / corner.abs();
 				corner *= std::sqrt(theta_star * theta_star * num_stars * mean_mass / kappa_star);
 				set_param("corner", corner, corner, verbose);
+			}
+		}
+		/******************************************************************************
+		otherwise, check that the star file actually has a large enough field of stars
+		******************************************************************************/
+		else
+		{
+			Complex<T> tmp_corner = Complex<T>((std::abs(w0.re) + max_r) / std::abs(1 - kappa_tot + shear), 
+											   (std::abs(w0.im) + max_r) / std::abs(1 - kappa_tot - shear));
+
+			if (!rectangular)
+			{
+				corner = tmp_corner / tmp_corner.abs() * corner.abs();
+				set_param("corner", corner, corner, verbose);
+			}
+
+			if (
+				(rectangular && (corner.re < safety_scale * tmp_corner.re || corner.im < safety_scale * tmp_corner.im)) ||
+				(!rectangular && (corner.abs() < safety_scale * tmp_corner.abs()))
+				)
+			{
+				std::cerr << "Error. The provided star field is not large enough to cover the necessary image plane region.\n";
+				std::cerr << "Try decreasing the safety_scale, or providing a larger field of stars.\n";
+				return false;
 			}
 		}
 
@@ -491,33 +519,6 @@ private:
 		{
 			std::cerr << "Error. taylor_smooth must be <= " << MAX_TAYLOR_SMOOTH << "\n";
 			return false;
-		}
-		
-		/******************************************************************************
-		number of roots to be found
-		******************************************************************************/
-		if (rectangular)
-		{
-			if (approx)
-			{
-				set_param("num_roots", num_roots, 2 * num_stars + taylor_smooth - 1, verbose);
-			}
-			else
-			{
-				set_param("num_roots", num_roots, 2 * num_stars, verbose);
-			}
-			
-		}
-		else
-		{
-			if (approx)
-			{
-				set_param("num_roots", num_roots, 2 * num_stars, verbose);
-			}
-			else
-			{
-				set_param("num_roots", num_roots, 2 * num_stars + 2, verbose);
-			}
 		}
 
 		t_elapsed = stopwatch.stop();
@@ -550,73 +551,8 @@ private:
 		cudaMallocManaged(&binomial_coeffs, (2 * treenode::MAX_EXPANSION_ORDER * (2 * treenode::MAX_EXPANSION_ORDER + 3) / 2 + 1) * sizeof(int));
 		if (cuda_error("cudaMallocManaged(*binomial_coeffs)", false, __FILE__, __LINE__)) return false;
 
-		/******************************************************************************
-		allocate memory for array of critical curve positions
-		******************************************************************************/
-		cudaMallocManaged(&ccs_init, (num_phi + num_branches) * num_roots * sizeof(Complex<T>));
-		if (cuda_error("cudaMallocManaged(*ccs_init)", false, __FILE__, __LINE__)) return false;
-
-		/******************************************************************************
-		allocate memory for array of transposed critical curve positions
-		******************************************************************************/
-		cudaMallocManaged(&ccs, (num_phi + num_branches) * num_roots * sizeof(Complex<T>));
-		if (cuda_error("cudaMallocManaged(*ccs)", false, __FILE__, __LINE__)) return false;
-
-		/******************************************************************************
-		array to hold t/f values of whether or not roots have been found to desired
-		precision
-		******************************************************************************/
-		cudaMallocManaged(&fin, num_branches * 2 * num_roots * sizeof(bool));
-		if (cuda_error("cudaMallocManaged(*fin)", false, __FILE__, __LINE__)) return false;
-
-		/******************************************************************************
-		array to hold root errors
-		******************************************************************************/
-		cudaMallocManaged(&errs, (num_phi + num_branches) * num_roots * sizeof(T));
-		if (cuda_error("cudaMallocManaged(*errs)", false, __FILE__, __LINE__)) return false;
-
-		/******************************************************************************
-		variable to hold whether array of root errors has nan errors or not
-		******************************************************************************/
-		cudaMallocManaged(&has_nan, sizeof(int));
-		if (cuda_error("cudaMallocManaged(*has_nan)", false, __FILE__, __LINE__)) return false;
-
-		/******************************************************************************
-		array to hold caustic positions
-		******************************************************************************/
-		if (write_caustics)
-		{
-			cudaMallocManaged(&caustics, (num_phi + num_branches) * num_roots * sizeof(Complex<T>));
-			if (cuda_error("cudaMallocManaged(*caustics)", false, __FILE__, __LINE__)) return false;
-		}
-
-		/******************************************************************************
-		array to hold caustic strengths
-		******************************************************************************/
-		if (write_mu_length_scales)
-		{
-			cudaMallocManaged(&mu_length_scales, (num_phi + num_branches) * num_roots * sizeof(T));
-			if (cuda_error("cudaMallocManaged(*mu_length_scales)", false, __FILE__, __LINE__)) return false;
-		}
-
 		t_elapsed = stopwatch.stop();
 		print_verbose("Done allocating memory. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
-
-
-		/******************************************************************************
-		initialize values of whether roots have been found to false
-		twice the number of roots for a single value of phi for each branch, times the
-		number of branches, because we will be growing roots for two values of phi
-		simultaneously for each branch
-		******************************************************************************/
-		print_verbose("Initializing array values...\n", verbose, 3);
-		stopwatch.start();
-
-		thrust::fill(thrust::device, fin, fin + num_branches * 2 * num_roots, false);
-		thrust::fill(thrust::device, errs, errs + (num_phi + num_branches) * num_roots, 0);
-
-		t_elapsed = stopwatch.stop();
-		print_verbose("Done initializing array values. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
 
 		return true;
 	}
@@ -724,29 +660,6 @@ private:
 		/******************************************************************************
 		END populating star array
 		******************************************************************************/
-
-
-		/******************************************************************************
-		initialize roots for centers of all branches to lie at starpos +/- 1
-		******************************************************************************/
-		print_verbose("Initializing root positions...\n", verbose, 3);
-		for (int j = 0; j < num_branches; j++)
-		{
-			int center = (num_phi / (2 * num_branches) + j * num_phi / num_branches + j) * num_roots;
-			for (int i = 0; i < num_stars; i++)
-			{
-				ccs_init[center + i] = stars[i].position + 1;
-				ccs_init[center + i + num_stars] = stars[i].position - 1;
-			}
-			int nroots_extra = num_roots - 2 * num_stars;
-			for (int i = 0; i < nroots_extra; i++)
-			{
-				ccs_init[center + 2 * num_stars + i] = corner.abs() *
-					Complex<T>(std::cos(2 * std::numbers::pi_v<T> / nroots_extra * i), 
-								std::sin(2 * std::numbers::pi_v<T> / nroots_extra * i));
-			}
-		}
-		print_verbose("Done initializing root positions.\n\n", verbose, 3);
 
 		return true;
 	}
@@ -941,220 +854,303 @@ private:
 		return true;
 	}
 
-	bool find_initial_roots(int verbose)
+	bool find_image_line(int verbose)
 	{
-		/******************************************************************************
-		number of iterations to use for root finding
-		empirically, 30 seems to be roughly the amount needed
-		******************************************************************************/
-		int num_iters = 30;
+		print_verbose("Finding images...\n", verbose, 1);
 
-		set_threads(threads, 256);
-		set_blocks(threads, blocks, num_roots, 2, num_branches);
+        std::vector<std::vector<Complex<T>>> tmp_image_lines;
 
-		/******************************************************************************
-		begin finding initial roots and calculate time taken in seconds
-		******************************************************************************/
-		print_verbose("Finding initial roots...\n", verbose, 1);
-		stopwatch.start();
+        int s = 30; //scale factor for how far true root can be from the tangent estimate
+        Complex<T> z, new_z, tmp_dz, dz;
+        T max_dz = theta_star * std::sqrt(mean_mass2 / mean_mass) / s;
+        T min_dz = max_dz / 1000;
+        TreeNode<T>* node;
+        T mu1, mu2;
+        T dt = 1;
 
-		/******************************************************************************
-		each iteration of this loop calculates updated positions of all roots for the
-		center of each branch in parallel
-		ideally, the number of loop iterations is enough to ensure that all roots are
-		found to the desired accuracy
-		******************************************************************************/
-		for (int i = 0; i < num_iters; i++)
+        thrust::universal_vector<int> use_star(num_stars, 1);
+        set_threads(threads, 256);
+        set_blocks(threads, blocks, num_stars);
+		if (write_image_lines)
 		{
-			/******************************************************************************
-			display percentage done
-			******************************************************************************/
-			print_progress(verbose, i, num_iters - 1);
-
-			find_critical_curve_roots_kernel<T> <<<blocks, threads>>> (kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
-				rectangular, corner, approx, taylor_smooth, ccs_init, num_roots, 0, num_phi, num_branches, fin);
-			if (cuda_error("find_critical_curve_roots_kernel", true, __FILE__, __LINE__)) return false;
+        	use_star_kernel<T> <<<blocks, threads>>> (stars, num_stars, kappa_tot, shear, w0, v, max_r, &use_star[0]);
+        	if (cuda_error("use_star_kernel", true, __FILE__, __LINE__)) return false;
 		}
-		t_init_roots = stopwatch.stop();
-		print_verbose("\nDone finding initial roots. Elapsed time: " << t_init_roots << " seconds.\n", verbose, 1);
-
-
-		/******************************************************************************
-		set boolean (int) of errors having nan values to false (0)
-		******************************************************************************/
-		*has_nan = 0;
-
-		/******************************************************************************
-		calculate errors in 1/mu for initial roots
-		******************************************************************************/
-		set_threads(threads, 512);
-		set_blocks(threads, blocks, (num_phi + num_branches) * num_roots);
-
-		print_verbose("Calculating maximum error in 1/mu...\n", verbose, 3);
-		find_errors_kernel<T> <<<blocks, threads>>> (ccs_init, num_roots, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
-			rectangular, corner, approx, taylor_smooth, 0, num_phi, num_branches, errs);
-		if (cuda_error("find_errors_kernel", false, __FILE__, __LINE__)) return false;
-
-		has_nan_err_kernel<T> <<<blocks, threads>>> (errs, (num_phi + num_branches) * num_roots, has_nan);
-		if (cuda_error("has_nan_err_kernel", true, __FILE__, __LINE__)) return false;
-
-		if (*has_nan)
+		else
 		{
-			std::cerr << "Error. Errors in 1/mu contain values which are not positive real numbers.\n";
-			return false;
-		}
-
-		/******************************************************************************
-		find max error and print
-		******************************************************************************/
-		max_error = *thrust::max_element(thrust::device, errs, errs + (num_phi + num_branches) * num_roots);
-		print_verbose("Maximum error in 1/mu: " << max_error << "\n\n", verbose, 1);
-
-
-		return true;
-	}
-
-	bool find_ccs(int verbose)
-	{
-		/******************************************************************************
-		reduce number of iterations needed, as roots should stay close to previous
-		positions
-		******************************************************************************/
-		int num_iters = 20;
-
-		set_threads(threads, 256);
-		set_blocks(threads, blocks, num_roots, 2, num_branches);
-
-		/******************************************************************************
-		begin finding critical curves and calculate time taken in seconds
-		******************************************************************************/
-		print_verbose("Finding critical curve positions...\n", verbose, 1);
-		stopwatch.start();
-
-		/******************************************************************************
-		the outer loop will step through different values of phi
-		we use num_phi/(2*num_branches) steps, as we will be working our way out from
-		the middle of each branch for the array of roots simultaneously
-		******************************************************************************/
-		for (int j = 1; j <= num_phi / (2 * num_branches); j++)
-		{
-			/******************************************************************************
-			set critical curve array elements to be equal to last roots
-			fin array is reused each time
-			******************************************************************************/
-			prepare_roots_kernel<T> <<<blocks, threads>>> (ccs_init, num_roots, j, num_phi, num_branches, fin);
-			if (cuda_error("prepare_roots_kernel", false, __FILE__, __LINE__)) return false;
-
-			/******************************************************************************
-			calculate roots for current values of j
-			******************************************************************************/
-			for (int i = 0; i < num_iters; i++)
+			int N_ANGLES = 1000;
+			for (int i = 0; i <= N_ANGLES; i++)
 			{
-				find_critical_curve_roots_kernel<T> <<<blocks, threads>>> (kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
-					rectangular, corner, approx, taylor_smooth, ccs_init, num_roots, j, num_phi, num_branches, fin);
-				if (cuda_error("find_critical_curve_roots_kernel", false, __FILE__, __LINE__)) return false;
-			}
-			/******************************************************************************
-			only perform synchronization call after roots have all been found
-			this allows the print_progress call in the outer loop to accurately display the
-			amount of work done so far
-			one could move the synchronization call outside of the outer loop for a slight
-			speed-up, at the cost of not knowing how far along in the process the
-			computations have gone
-			******************************************************************************/
-			if (j * 100 / (num_phi / (2 * num_branches)) > (j - 1) * 100 / (num_phi / (2 * num_branches)))
-			{
-				cudaDeviceSynchronize();
-				if (cuda_error("cudaDeviceSynchronize", false, __FILE__, __LINE__)) return false;
-				print_progress(verbose, j, num_phi / (2 * num_branches));
+        		use_star_kernel<T> <<<blocks, threads>>> (stars, num_stars, kappa_tot, shear, w0, 
+														  v * Complex<T>(std::cos(std::numbers::pi_v<T> / (2 * N_ANGLES) * i),
+																		 std::sin(std::numbers::pi_v<T> / (2 * N_ANGLES) * i)),
+														  max_r, &use_star[0]);
+        		if (cuda_error("use_star_kernel", true, __FILE__, __LINE__)) return false;
 			}
 		}
-		t_ccs = stopwatch.stop();
-		print_verbose("\nDone finding critical curve positions. Elapsed time: " << t_ccs << " seconds.\n", verbose, 1);
-		print_verbose("\n", verbose, 3);
-
-
+        
 		/******************************************************************************
-		set boolean (int) of errors having nan values to false (0)
+		BEGIN finding main image line
 		******************************************************************************/
-		*has_nan = 0;
+		print_verbose("Finding main image line...\n", verbose, 2);
+        stopwatch.start();
 
+        //start in a position such that the velocity vector takes you through the field
+        z = Complex<T>(-v.re / (1 - kappa_tot + shear), 
+            		   -v.im / (1 - kappa_tot - shear));
+        z = z / z.abs() * corner.abs() * safety_scale;
+
+        tmp_image_lines.push_back(std::vector<Complex<T>>());
+
+        z = find_root<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+						 rectangular, corner, approx, taylor_smooth, w0, v);
+        tmp_image_lines.back().push_back(z);
+
+        node = treenode::get_nearest_node(z, tree[0]);
+        mu1 = microlensing::mu<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, node,
+                        		  rectangular, corner, approx, taylor_smooth);
+        do
+        {
+            new_z = step_tangent<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+                        rectangular, corner, approx, taylor_smooth, w0, v, dt, min_dz, max_dz);
+            tmp_dz = (new_z - z);
+            new_z = find_root<T>(new_z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+                        rectangular, corner, approx, taylor_smooth, w0, v);
+            dz = (new_z - z);
+
+            //if actual root is too large relative to the initial tangent step
+            if ((dz - tmp_dz).abs() * s > tmp_dz.abs())
+            {
+                dt /= 2;
+                continue;
+            }
+            //if actual root is very close to the tangent step
+            else if ((dz - tmp_dz).abs() * s * s < tmp_dz.abs())
+            {
+                dt *= 2;
+            }
+
+            node = treenode::get_nearest_node(new_z, tree[0]);
+            mu2 = microlensing::mu<T>(new_z, kappa_tot, shear, theta_star, stars, kappa_star, node,
+                            		  rectangular, corner, approx, taylor_smooth);
+            
+            if ((mu1 < 0 && mu2 > 0 )
+                || (mu1 > 0 && mu2 < 0))
+            {
+                tmp_dz = dz;
+                new_z = z - mu1 / (mu2 - mu1) * dz;
+                new_z = find_critical_curve_image<T>(new_z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+                            rectangular, corner, approx, taylor_smooth, w0, v);
+                dz = (new_z - z);
+                dt *= dz.abs() / tmp_dz.abs();
+                mu2 = 0;
+            }           
+            z = new_z;
+            mu1 = mu2;
+            tmp_image_lines.back().push_back(z);
+
+            if (is_near_star(z, stars, tree[0], dz)
+                && is_near_star(z - dz, stars, tree[0], dz))
+            {
+                int index = get_nearest_star(z - dz / 2, stars, tree[0]);
+                use_star[index] = 0;
+            }
+        } while (z.abs() < safety_scale * corner.abs());
+        t_elapsed = stopwatch.stop();
+        print_verbose("Done finding main image line. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 2);
 		/******************************************************************************
-		find max error in 1/mu over whole critical curve array and print
+		END finding main image line
 		******************************************************************************/
-		set_threads(threads, 512);
-		set_blocks(threads, blocks, (num_phi + num_branches) * num_roots);
 
-		print_verbose("Finding maximum error in 1/mu over all calculated critical curve positions...\n", verbose, 3);
+        
+		/******************************************************************************
+		BEGIN finding secondary image loops
+		******************************************************************************/
+		print_verbose("Finding secondary image loops...\n", verbose, 2);
+        stopwatch.start();
+        for (int i = 0; i < num_stars; i++)
+        {
+            if (use_star[i])
+            {
+                use_star[i] = 0;
+                dz = Complex<T>(-v.re / (1 - kappa_tot + shear), 
+                                -v.im / (1 - kappa_tot - shear));
+                max_dz = theta_star * theta_star * stars[i].mass / std::abs(macro_parametric_image_line(stars[i].position, kappa_tot, shear, w0, v));
+                max_dz /= 2 * s; //diameter to radius
+                max_dz = std::min(max_dz, theta_star * std::sqrt(mean_mass2 / mean_mass) / s);
+                min_dz = max_dz / 1000;
+                dz *= min_dz / dz.abs();
+                z = stars[i].position + dz;
 
-		for (int j = 0; j <= num_phi / (2 * num_branches); j++)
-		{
-			find_errors_kernel<T> <<<blocks, threads>>> (ccs_init, num_roots, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
-				rectangular, corner, approx, taylor_smooth, j, num_phi, num_branches, errs);
-			if (cuda_error("find_errors_kernel", false, __FILE__, __LINE__)) return false;
-		}
+                tmp_image_lines.push_back(std::vector<Complex<T>>());
 
-		has_nan_err_kernel<T> <<<blocks, threads>>> (errs, (num_phi + num_branches) * num_roots, has_nan);
-		if (cuda_error("has_nan_err_kernel", true, __FILE__, __LINE__)) return false;
+                z = find_root<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+                                    rectangular, corner, approx, taylor_smooth, w0, v);
+                tmp_image_lines.back().push_back(z);
 
-		if (*has_nan)
-		{
-			std::cerr << "Error. Errors in 1/mu contain values which are not positive real numbers.\n";
-			return false;
-		}
+                node = treenode::get_nearest_node(z, tree[0]);
+                mu1 = microlensing::mu<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, node,
+                                		  rectangular, corner, approx, taylor_smooth);
+                do
+                {
+                    new_z = step_tangent<T>(z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+                                			rectangular, corner, approx, taylor_smooth, w0, v, dt, min_dz, max_dz);
+                    tmp_dz = (new_z - z);
 
-		max_error = *thrust::max_element(thrust::device, errs, errs + (num_phi + num_branches) * num_roots);
-		print_verbose("Maximum error in 1/mu: " << max_error << "\n\n", verbose, 1);
+                    if (is_near_star(new_z, stars, tree[0], tmp_dz)
+                        && is_near_star(new_z - tmp_dz, stars, tree[0], tmp_dz))
+                    {
+                        int index = get_nearest_star(new_z - tmp_dz / 2, stars, tree[0]);
+                        use_star[index] = 0;
+                        if (index == i)
+                        {
+                            break;
+                        }
+                    }
+
+                    new_z = find_root<T>(new_z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+                                		 rectangular, corner, approx, taylor_smooth, w0, v);
+                    dz = (new_z - z);
+                    if ((dz - tmp_dz).abs() * s > tmp_dz.abs())
+                    {
+                        dt /= 2;
+                        continue;
+                    }
+                    else if ((dz - tmp_dz).abs() * s * s < tmp_dz.abs())
+                    {
+                        dt *= 2;
+                    }
+
+                    node = treenode::get_nearest_node(new_z, tree[0]);
+                    mu2 = microlensing::mu<T>(new_z, kappa_tot, shear, theta_star, stars, kappa_star, node,
+                                    		  rectangular, corner, approx, taylor_smooth);
+                    
+                    if ((mu1 < 0 && mu2 > 0 )
+                        || (mu1 > 0 && mu2 < 0))
+                    {
+                        tmp_dz = dz;
+                        new_z = z - mu1 / (mu2 - mu1) * dz;
+                        new_z = find_critical_curve_image<T>(new_z, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+                                    rectangular, corner, approx, taylor_smooth, w0, v);
+                        dz = (new_z - z);
+                        dt *= dz.abs() / tmp_dz.abs();
+                        mu2 = 0;
+                    }           
+                    z = new_z;
+                    mu1 = mu2;
+                    tmp_image_lines.back().push_back(z);
+                } while (true);
+            }
+        }
+        t_elapsed = stopwatch.stop();
+        print_verbose("Done finding secondary image loops. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 2);
+		/******************************************************************************
+		END finding secondary image loops
+		******************************************************************************/
+
+        print_verbose("Done finding images.\n\n", verbose, 1);
 
 
-		set_threads(threads, 512);
-		set_blocks(threads, blocks, num_roots * (num_phi + num_branches));
+        for (int i = 0; i < tmp_image_lines.size(); i++)
+        {
+            image_lines_lengths.push_back(tmp_image_lines[i].size());
+        }
 
-		print_verbose("Transposing critical curve array...\n", verbose, 3);
-		stopwatch.start();
-		transpose_array_kernel<Complex<T>> <<<blocks, threads>>> (ccs_init, (num_phi + num_branches), num_roots, ccs);
-		if (cuda_error("transpose_array_kernel", true, __FILE__, __LINE__)) return false;
-		t_elapsed = stopwatch.stop();
-		print_verbose("Done transposing critical curve array. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
+        int total_image_lines_lengths = std::reduce(image_lines_lengths.begin(), image_lines_lengths.end(), 0);
+        
+        cudaMallocManaged(&image_lines, total_image_lines_lengths * sizeof(Complex<T>));
+        if (cuda_error("cudaMallocManaged(*image_lines)", false, __FILE__, __LINE__)) return false;
+        cudaMallocManaged(&source_lines, total_image_lines_lengths * sizeof(Complex<T>));
+        if (cuda_error("cudaMallocManaged(*source_lines)", false, __FILE__, __LINE__)) return false;
+        cudaMallocManaged(&image_lines_mags, total_image_lines_lengths * sizeof(T));
+        if (cuda_error("cudaMallocManaged(*image_lines_mags)", false, __FILE__, __LINE__)) return false;
 
+        print_verbose("Copying image lines...\n", verbose, 2);
+        stopwatch.start();
+        for (int i = 0; i < tmp_image_lines.size(); i++)
+        {
+            int start = std::reduce(&image_lines_lengths[0], &image_lines_lengths[i], 0);
+            thrust::copy(tmp_image_lines[i].begin(), tmp_image_lines[i].end(), &image_lines[start]);
+        }
+        t_elapsed = stopwatch.stop();
+        print_verbose("Done copying image lines. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 2);
+
+
+        set_threads(threads, 256);
+        set_blocks(threads, blocks, total_image_lines_lengths);
+
+        print_verbose("Mapping image lines...\n", verbose, 2);
+        stopwatch.start();
+        image_to_source_kernel<T> <<<blocks, threads>>> (image_lines, total_image_lines_lengths, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+            rectangular, corner, approx, taylor_smooth, source_lines);
+        if (cuda_error("image_to_source_kernel", true, __FILE__, __LINE__)) return false;
+        t_elapsed = stopwatch.stop();
+        print_verbose("Done mapping image lines. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 2);
+
+        print_verbose("Calculating magnifications...\n", verbose, 2);
+        stopwatch.start();
+        magnifications_kernel<T> <<<blocks, threads>>> (image_lines, total_image_lines_lengths, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+            rectangular, corner, approx, taylor_smooth, image_lines_mags);
+        if (cuda_error("magnifications_kernel", true, __FILE__, __LINE__)) return false;
+        t_elapsed = stopwatch.stop();
+        print_verbose("Done calculating magnifications. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 2);
+		
 		return true;
 	}
 
-	bool find_caustics(int verbose)
+	bool find_point_images(int verbose)
 	{
-		if (write_caustics)
+		print_verbose("Finding point images...\n", verbose, 1);
+
+		Complex<T> z1, z2, dz, dwdz, dwdzbar;
+		T f1, f2;
+		TreeNode<T>* node;
+		
+        stopwatch.start();
+		for (int i =0; i < image_lines_lengths.size(); i++)
 		{
-			set_threads(threads, 256);
-			set_blocks(threads, blocks, num_roots * (num_phi + num_branches));
+			int start = std::reduce(&image_lines_lengths[0], &image_lines_lengths[i], 0);
 
-			print_verbose("Finding caustic positions...\n", verbose, 2);
-			stopwatch.start();
-			find_caustics_kernel<T> <<<blocks, threads>>> (ccs, (num_phi + num_branches) * num_roots, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
-				rectangular, corner, approx, taylor_smooth, caustics);
-			if (cuda_error("find_caustics_kernel", true, __FILE__, __LINE__)) return false;
-			t_caustics = stopwatch.stop();
-			print_verbose("Done finding caustic positions. Elapsed time: " << t_caustics << " seconds.\n\n", verbose, 2);
+			for (int j = 0; j < image_lines_lengths[i] - 1; j++)
+			{
+				z1 = image_lines[start + j];
+				z2 = image_lines[start + j + 1];
+				dz = (z2 - z1);
+
+				node = treenode::get_nearest_node(z2, tree[0]);
+				f2 = parametric_image_line(z2, kappa_tot, shear, theta_star, stars, kappa_star, node,
+										   rectangular, corner, approx, taylor_smooth, w0, v * Complex<T>(0, 1));
+				node = treenode::get_nearest_node(z1, tree[0]);
+				f1 = parametric_image_line(z1, kappa_tot, shear, theta_star, stars, kappa_star, node,
+										   rectangular, corner, approx, taylor_smooth, w0, v * Complex<T>(0, 1));
+				
+				//if we are crossing a star, the sign changes
+				bool is_star = (is_near_star(z1, stars, tree[0], dz) && is_near_star(z2, stars, tree[0], dz));
+				
+				if (sgn(f1) != sgn(f2) && !is_star)
+				{
+					T dt = -f1 / (f2 - f1);
+					images.push_back(z1 + dz * dt);
+				}
+
+			}
 		}
-
-		return true;
-	}
-
-	bool find_mu_length_scales(int verbose)
-	{
-		if (write_mu_length_scales)
+		print_verbose("Number of point images: " << images.size() << "\n", verbose, 2);
+		for (int i = 0; i < images.size(); i++)
 		{
-			set_threads(threads, 256);
-			set_blocks(threads, blocks, num_roots * (num_phi + num_branches));
-
-			print_verbose("Finding magnification length scales...\n", verbose, 2);
-			stopwatch.start();
-			find_mu_length_scales_kernel<T> <<<blocks, threads>>> (ccs, (num_phi + num_branches) * num_roots, kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
-				rectangular, corner, approx, taylor_smooth, mu_length_scales);
-			if (cuda_error("find_mu_length_scales_kernel", true, __FILE__, __LINE__)) return false;
-			t_elapsed = stopwatch.stop();
-			print_verbose("Done finding magnification length scales. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 2);
+			images[i] = find_point_image(images[i], kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+					rectangular, corner, approx, taylor_smooth, w0, v);
+			node = treenode::get_nearest_node(images[i], tree[0]);
+			dwdz = microlensing::d_w_d_z<T>(images[i], kappa_tot, shear, kappa_star,
+					rectangular, corner, approx);
+			dwdzbar = microlensing::d_w_d_zbar<T>(images[i], kappa_tot, shear, theta_star, stars, kappa_star, node,
+					rectangular, corner, approx, taylor_smooth);
+			images_mags.push_back(dwdz);
+			images_mags.push_back(dwdzbar);
 		}
-
+        t_elapsed = stopwatch.stop();
+		print_verbose("Done finding point images.\n\n", verbose, 1);
+		
 		return true;
 	}
 
@@ -1170,7 +1166,7 @@ private:
 
 
 		print_verbose("Writing parameter info...\n", verbose, 2);
-		fname = outfile_prefix + "ccf_parameter_info.txt";
+		fname = outfile_prefix + "mif_parameter_info.txt";
 		outfile.open(fname);
 		if (!outfile.is_open())
 		{
@@ -1206,6 +1202,7 @@ private:
 		outfile << "mean_mass_actual " << mean_mass_actual << "\n";
 		outfile << "mean_mass2_actual " << mean_mass2_actual << "\n";
 		outfile << "mean_mass2_ln_mass_actual " << mean_mass2_ln_mass_actual << "\n";
+		outfile << "light_loss " << light_loss << "\n";
 		outfile << "num_stars " << num_stars << "\n";
 		if (rectangular)
 		{
@@ -1220,78 +1217,86 @@ private:
 		{
 			outfile << "rad " << corner.abs() << "\n";
 		}
-		outfile << "num_roots " << num_roots << "\n";
-		outfile << "num_phi " << num_phi << "\n";
-		outfile << "num_branches " << num_branches << "\n";
-		outfile << "max_error_1/mu " << max_error << "\n";
-		outfile << "t_init_roots " << t_init_roots << "\n";
-		outfile << "t_ccs " << t_ccs << "\n";
-		outfile << "t_caustics " << t_caustics << "\n";
+		outfile << "safety_scale " << safety_scale << "\n";
+		outfile << "w0_1 " << w0.re << "\n";
+		outfile << "w0_2 " << w0.im << "\n";
+		outfile << "v_1 " << v.re << "\n";
+		outfile << "v_2 " << v.im << "\n";
+		outfile << "alpha_error " << alpha_error << "\n";
+		outfile << "expansion_order " << expansion_order << "\n";
+		outfile << "root_half_length " << root_half_length << "\n";
+		outfile << "tree_levels " << tree_levels << "\n";
 		outfile.close();
 		print_verbose("Done writing parameter info to file " << fname << "\n", verbose, 1);
-		print_verbose("\n", verbose * (write_stars || write_critical_curves || write_caustics || write_mu_length_scales), 2);
+		print_verbose("\n", verbose * (write_stars || write_images || write_image_lines), 2);
 
 
 		if (write_stars)
 		{
 			print_verbose("Writing star info...\n", verbose, 2);
-			fname = outfile_prefix + "ccf_stars" + outfile_type;
+			fname = outfile_prefix + "mif_stars" + outfile_type;
 			if (!write_star_file<T>(num_stars, rectangular, corner, theta_star, stars, fname))
 			{
 				std::cerr << "Error. Unable to write star info to file " << fname << "\n";
 				return false;
 			}
 			print_verbose("Done writing star info to file " << fname << "\n", verbose, 1);
-			print_verbose("\n", verbose * (write_critical_curves || write_caustics || write_mu_length_scales), 2);
+			print_verbose("\n", verbose * (write_images || write_image_lines), 2);
 		}
 
-
-		/******************************************************************************
-		write critical curve positions
-		******************************************************************************/
-		if (write_critical_curves)
+		if (write_images)
 		{
-			print_verbose("Writing critical curve positions...\n", verbose, 2);
-			fname = outfile_prefix + "ccf_ccs" + outfile_type;
-			if (!write_array<Complex<T>>(ccs, num_roots * num_branches, num_phi / num_branches + 1, fname))
+			print_verbose("Writing point images...\n", verbose, 2);
+			fname = outfile_prefix + "mif_images" + outfile_type;
+			if (!write_array<Complex<T>>(&images[0], 1, images.size(), fname))
 			{
-				std::cerr << "Error. Unable to write ccs info to file " << fname << "\n";
+				std::cerr << "Error. Unable to write point images to file " << fname << "\n";
 				return false;
 			}
-			print_verbose("Done writing critical curve positions to file " << fname << "\n", verbose, 1);
-			print_verbose("\n", verbose * (write_caustics || write_mu_length_scales), 2);
+			print_verbose("Done writing point images to file " << fname << "\n", verbose, 1);
+
+			print_verbose("Writing point image magnifications...\n", verbose, 2);
+			fname = outfile_prefix + "mif_images_magnifications" + outfile_type;
+			if (!write_array<Complex<T>>(&images_mags[0], images.size(), 2, fname))
+			{
+				std::cerr << "Error. Unable to write point image magnifications to file " << fname << "\n";
+				return false;
+			}
+			print_verbose("Done writing point image magnifications to file " << fname << "\n", verbose, 1);
+			print_verbose("\n", verbose * write_image_lines, 2);
 		}
 
-
-		/******************************************************************************
-		write caustic positions
-		******************************************************************************/
-		if (write_caustics)
+		if (write_image_lines)
 		{
-			print_verbose("Writing caustic positions...\n", verbose, 2);
-			fname = outfile_prefix + "ccf_caustics" + outfile_type;
-			if (!write_array<Complex<T>>(caustics, num_roots * num_branches, num_phi / num_branches + 1, fname))
+			print_verbose("Writing image lines...\n", verbose, 2);
+			fname = outfile_prefix + "mif_image_lines" + outfile_type;
+			if (!write_ragged_array<Complex<T>>(image_lines, image_lines_lengths, fname))
 			{
-				std::cerr << "Error. Unable to write caustic info to file " << fname << "\n";
+				std::cerr << "Error. Unable to write image lines to file " << fname << "\n";
 				return false;
 			}
-			print_verbose("Done writing caustic positions to file " << fname << "\n", verbose, 1);
-			print_verbose("\n", verbose * write_mu_length_scales, 2);
-		}
+			print_verbose("Done writing image lines to file " << fname << "\n", verbose, 1);
 
-		if (write_mu_length_scales)
-		{
-			/******************************************************************************
-			write caustic strengths
-			******************************************************************************/
-			print_verbose("Writing magnification length scales...\n", verbose, 2);
-			fname = outfile_prefix + "ccf_mu_length_scales" + outfile_type;
-			if (!write_array<T>(mu_length_scales, num_roots * num_branches, num_phi / num_branches + 1, fname))
+			print_verbose("Writing source lines...\n", verbose, 2);
+			fname = outfile_prefix + "mif_source_lines" + outfile_type;
+			if (!write_ragged_array<Complex<T>>(source_lines, image_lines_lengths, fname))
 			{
-				std::cerr << "Error. Unable to write magnification length scales info to file " << fname << "\n";
+				std::cerr << "Error. Unable to write source lines to file " << fname << "\n";
 				return false;
 			}
-			print_verbose("Done writing magnification length scales to file " << fname << "\n", verbose, 1);
+			print_verbose("Done writing source lines to file " << fname << "\n", verbose, 1);
+
+			if (write_magnifications)
+			{
+				print_verbose("Writing image lines magnifications...\n", verbose, 2);
+				fname = outfile_prefix + "mif_image_lines_magnifications" + outfile_type;
+				if (!write_ragged_array<T>(image_lines_mags, image_lines_lengths, fname))
+				{
+					std::cerr << "Error. Unable to write magnifications to file " << fname << "\n";
+					return false;
+				}
+				print_verbose("Done writing image lines magnifications to file " << fname << "\n", verbose, 1);
+			}
 		}
 
 		return true;
@@ -1303,7 +1308,7 @@ public:
 	/******************************************************************************
 	class initializer is empty
 	******************************************************************************/
-	CCF()
+	MIF()
 	{
 
 	}
@@ -1311,7 +1316,7 @@ public:
 	/******************************************************************************
 	class destructor clears memory with no output or error checking
 	******************************************************************************/
-	~CCF()
+	~MIF()
 	{
 		clear_memory(0, false);
 	}
@@ -1319,21 +1324,13 @@ public:
 	/******************************************************************************
 	copy constructor sets this object's dynamic memory pointers to null
 	******************************************************************************/
-	CCF(const CCF& other)
+	MIF(const MIF& other)
 	{
 		states = nullptr;
 		stars = nullptr;
 		temp_stars = nullptr;
 
 		binomial_coeffs = nullptr;
-
-		ccs_init = nullptr;
-		ccs = nullptr;
-		fin = nullptr;
-		errs = nullptr;
-		has_nan = nullptr;
-		caustics = nullptr;
-		mu_length_scales = nullptr;
 
 		tree = {};
 	}
@@ -1341,23 +1338,15 @@ public:
 	/******************************************************************************
 	copy assignment sets this object's dynamic memory pointers to null
 	******************************************************************************/
-	CCF& operator=(const CCF& other)
+	MIF& operator=(const MIF& other)
 	{
         if (this == &other) return *this;
-
+		
 		states = nullptr;
 		stars = nullptr;
 		temp_stars = nullptr;
 
 		binomial_coeffs = nullptr;
-
-		ccs_init = nullptr;
-		ccs = nullptr;
-		fin = nullptr;
-		errs = nullptr;
-		has_nan = nullptr;
-		caustics = nullptr;
-		mu_length_scales = nullptr;
 
 		tree = {};
 
@@ -1373,10 +1362,8 @@ public:
 		if (!allocate_initialize_memory(verbose)) return false;
 		if (!populate_star_array(verbose)) return false;
 		if (!create_tree(verbose)) return false;
-		if (!find_initial_roots(verbose)) return false;
-		if (!find_ccs(verbose)) return false;
-		if (!find_caustics(verbose)) return false;
-		if (!find_mu_length_scales(verbose)) return false;
+		if (!find_image_line(verbose)) return false;
+		if (!find_point_images(verbose)) return false;
 
 		return true;
 	}
@@ -1388,13 +1375,18 @@ public:
 		return true;
 	}
 
-	int get_num_roots()					{return num_roots;}
-	Complex<T> get_corner()				{if (rectangular) {return corner;} else {return Complex<T>(corner.abs(), 0);}}
-	star<T>* get_stars()				{return stars;}
-	Complex<T>* get_critical_curves()	{return ccs;}
-	Complex<T>* get_caustics()			{return caustics;}
-	T* get_mu_length_scales()			{return mu_length_scales;}
-	double get_t_ccs()					{return t_ccs;}
+	int get_num_stars()						{return num_stars;}
+	Complex<T> get_corner()					{if (rectangular) {return corner;} else {return Complex<T>(corner.abs(), 0);}}
+	star<T>* get_stars()					{return stars;}
+	Complex<T>* get_images()				{return &images[0];}
+	int get_num_images()					{return images.size();}
+	Complex<T>* get_images_mags()			{return &images_mags[0];}
+	Complex<T>* get_image_lines()			{return image_lines;}
+	int get_num_image_lines()				{return image_lines_lengths.size();}
+	int* get_image_lines_lengths()			{return &image_lines_lengths[0];}
+	int get_total_image_lines_length()		{return std::reduce(image_lines_lengths.begin(), image_lines_lengths.end(), 0);}
+	Complex<T>* get_source_lines()			{return source_lines;}
+	T* get_image_lines_mags()				{return image_lines_mags;}
 
 };
 
