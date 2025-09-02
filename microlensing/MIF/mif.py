@@ -4,6 +4,7 @@ from . import plotting
 
 import numpy as np
 import matplotlib.axes
+from scipy.interpolate import RegularGridInterpolator
 
 
 class MIF(object):
@@ -62,6 +63,7 @@ class MIF(object):
             if self.m_lower > self.m_upper:
                 raise ValueError("m_lower must be <= m_upper")
             self.rectangular = rectangular
+            assert not self.rectangular # TODO: fix cuda code so rectangular can be true
             self.random_seed = random_seed
 
         self.light_loss = light_loss
@@ -380,8 +382,12 @@ class MIF(object):
             self.image_lines_mags = np.ctypeslib.as_array(self.lib.get_image_lines_mags(self.obj),
                                                           shape=(self.lib.get_total_image_lines_length(self.obj),)).copy()
             self.image_lines_mags = np.split(self.image_lines_mags, np.cumsum(image_lines_lengths))
+
+            self.image_lines = self.image_lines[:-1]
+            self.source_lines = self.source_lines[:-1]
+            self.image_lines_mags = self.image_lines_mags[:-1]
         else:
-            self.image_Lines = None
+            self.image_lines = None
             self.source_lines = None
             self.image_lines_mags = None
         
@@ -392,6 +398,68 @@ class MIF(object):
     def save(self):
         if not self.lib.save(self.obj, self.verbose):
             raise Exception("Error saving MIF")
+        
+    @property
+    def bins(self):
+        try:
+            return self._bins
+        except AttributeError:
+            dw = 0.001 # arbitrary step size in source plane
+
+            # x = [np.dot(what - self.w0, self.v / np.linalg.norm(self.v)) for what in self.source_lines]
+            # x_min = np.min([np.min(what) for what in x])
+            # x_max = np.max([np.max(what) for what in x])
+            x_min = -25
+            x_max = 25
+
+            self._bins = np.arange(x_min, x_max, dw)
+            self._bins = np.insert(self._bins, self._bins.size, x_max)
+            return self._bins
+        
+    @property
+    def distances(self):
+        try:
+            return self._distances
+        except AttributeError:
+            self._distances = (self.bins[:-1] + self.bins[1:]) / 2
+            return self._distances
+        
+    @property
+    def magnifications(self):
+        try:
+            return self._magnifications
+        except AttributeError:
+            self._magnifications = np.zeros(self.distances.shape)
+
+            for src, mu in zip(self.source_lines, self.image_lines_mags):
+                tmp_x = np.dot(src - self.w0, self.v / np.linalg.norm(self.v))
+                tmp_y = np.abs(mu)
+
+                # find where direction changes in source plane
+                sgn = np.sign(tmp_x[1:] - tmp_x[:-1])
+                sgn = np.insert(sgn, 0, sgn[0])
+
+                # riffle so that slices start and end where sgn changes
+                where = np.where(sgn[1:] != sgn[:-1])[0]
+                where = np.ravel(np.column_stack((where + 1, where)))
+
+                # split and remove empty slices
+                tmp_x = np.split(tmp_x, where)
+                tmp_x = [what for what in tmp_x if not len(what)==0]
+
+                tmp_y = np.split(tmp_y, where)
+                tmp_y = [what for what in tmp_y if not len(what)==0]
+
+                # interpolate and evaluate at bin centers
+                for a, b in zip(tmp_x, tmp_y):
+                    interp = RegularGridInterpolator([a], b, bounds_error=False, fill_value=0)
+                    self._magnifications += interp(self._distances)
+            
+            return self._magnifications
+        
+    @property
+    def magnitudes(self):
+        return -2.5 * np.log10(np.abs(self.magnifications / self.mu_ave))
 
     def plot(self, ax: matplotlib.axes.Axes, 
              r=1, is_ellipse=True, log_area=False, mu_min=10**-3,
@@ -411,5 +479,17 @@ class MIF(object):
         ax.add_collection(plotting.Images(self.images, self.images_inv_mags,
                                           r, is_ellipse, log_area, mu_min))
         
-        ax.set_xlim([np.min(self.images[:,0]), np.max(self.images[:,0])])
-        ax.set_ylim([np.min(self.images[:,1]), np.max(self.images[:,1])])
+        r_img = 10 * self.theta_star * np.sqrt(self.kappa_star * self.stars.mean_mass2_actual / self.stars.mean_mass_actual)
+        xlim = r_img / np.abs(1 - self.kappa_tot + self.shear) * np.array([-1, 1])
+        ylim = r_img / np.abs(1 - self.kappa_tot - self.shear) * np.array([-1, 1])
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+
+    def plot_lightcurve(self, ax: matplotlib.axes.Axes):
+
+        ax.plot(self.distances / self.theta_star, self.magnitudes)
+
+        ax.invert_yaxis()
+
+        ax.set_xlabel('(distance from $w_0$) / $\\theta_★$')
+        ax.set_ylabel('microlensing $\\Delta m$ (magnitudes)')
