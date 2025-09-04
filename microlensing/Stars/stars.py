@@ -1,3 +1,5 @@
+from . import plotting
+
 import numpy as np
 
 
@@ -36,27 +38,46 @@ class Stars():
 
     @property
     def mean_mass_actual(self):
-        return np.mean(self.stars[:, 2])
+        return np.mean(self.masses)
 
     @property
     def mean_mass2_actual(self):
-        return np.mean(self.stars[:, 2]**2)
+        return np.mean(self.masses**2)
 
     @property
     def mean_mass2_ln_mass_actual(self):
-        return np.mean(self.stars[:, 2]**2 * np.log(self.stars[:, 2]))
+        return np.mean(self.masses**2 * np.log(self.masses))
 
-    def plot(self, ax, **kwargs):
-        if 's' not in kwargs.keys() and 'sizes' not in kwargs.keys():
-            kwargs['s'] = 10 * self.stars[:, 2]
+    @property
+    def kappa_star(self):
+        res = np.pi * self.theta_star**2 * np.sum(self.masses)
+        if self.rectangular:
+            res /= 4 * self.corner[0] * self.corner[1]
         else:
-            kwargs['s'] = kwargs['s'] * self.stars[:, 2]
-        if 'c' not in kwargs.keys() and 'color' not in kwargs.keys():
-            kwargs['c'] = 'black'
-        if 'marker' not in kwargs.keys():
-            kwargs['marker'] = '*'
+            res /= np.pi * (self.corner[0]**2 + self.corner[1]**2)
+        return res
+    
+    @property
+    def r90(self):
+        f = np.sqrt(self.mean_mass2_actual) * np.exp(-self.mean_mass2_ln_mass_actual / self.mean_mass2_actual)
+        sigma = self.theta_star * np.sqrt(self.kappa_star * self.mean_mass2_actual / self.mean_mass_actual
+                                          * np.log(2 * np.exp(1 - np.euler_gamma) * f * np.sqrt(self.num_stars)))
+        return 2.145966026 * sigma
+    
+    @property
+    def r99(self):
+        return self.theta_star * np.sqrt(100 * self.kappa_star * self.mean_mass2_actual / self.mean_mass_actual)
+    
+    @property
+    def r999(self):
+        return self.theta_star * np.sqrt(1000 * self.kappa_star * self.mean_mass2_actual / self.mean_mass_actual)
 
-        ax.scatter(self.stars[:, 0], self.stars[:, 1], **kwargs)
+    def plot(self, ax, color='black', s=1, **kwargs):
+
+        stars = plotting.Stars(self.positions, s * self.masses, np.min(self.masses), np.max(self.masses), 
+                               color=color, **kwargs)
+        
+        ax.add_collection(stars)
 
         if self.theta_star == 1:
             ax.set_xlabel('$x_1 / \\theta_★$')

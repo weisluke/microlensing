@@ -2,7 +2,7 @@ from . import lib_ncc
 
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.axes
+from matplotlib.axes import Axes
 
 
 class NCC(object):
@@ -185,28 +185,28 @@ class NCC(object):
                                                            shape=(self.num_pixels_y2,
                                                                   self.num_pixels_y1)).copy()
     
+    @property
+    def extent(self):
+        return np.array([[(self.center[0] - self.half_length[0]),
+                          (self.center[0] + self.half_length[0])],
+                         [(self.center[1] - self.half_length[1]),
+                          (self.center[1] + self.half_length[1])]])
+
     def save(self):
         if not self.lib.save(self.obj, self.verbose):
             raise Exception("Error saving NCC")
 
-    def plot(self, ax: matplotlib.axes.Axes, **kwargs):
+    def plot(self, ax: Axes, cmap='viridis', **kwargs):
         if 'vmin' not in kwargs.keys():
             kwargs['vmin'] = np.min(self.num_caustic_crossings) - 0.5
         if 'vmax' not in kwargs.keys():
             kwargs['vmax'] = np.max(self.num_caustic_crossings) + 0.5
-        if 'cmap' not in kwargs.keys():
-            kwargs['cmap'] = 'viridis'
 
-        kwargs['cmap'] = plt.get_cmap(kwargs['cmap'],
-                                      int(kwargs['vmax'] - kwargs['vmin']))
+        cmap = plt.get_cmap(cmap, int(kwargs['vmax'] - kwargs['vmin']))
 
-        extent = [(self.center[0] - self.half_length[0]),
-                  (self.center[0] + self.half_length[0]),
-                  (self.center[1] - self.half_length[1]),
-                  (self.center[1] + self.half_length[1])]
-
-        img = ax.imshow(self.num_caustic_crossings, extent=extent, **kwargs)
+        img = ax.imshow(self.num_caustic_crossings, extent=self.extent.ravel(), cmap=cmap, **kwargs)
         cbar = ax.get_figure().colorbar(img, label='$N_{\\text{caustic crossings}}$')
+
         # make sure ticks are only at integers
         cbar.set_ticks([what for what in cbar.get_ticks() 
                         if what == int(what) and what > kwargs['vmin'] and what < kwargs['vmax']])
@@ -214,11 +214,11 @@ class NCC(object):
         ax.set_xlabel('$y_1$')
         ax.set_ylabel('$y_2$')
 
-    def plot_hist(self, ax: matplotlib.axes.Axes, bins=None, **kwargs):
+    def plot_hist(self, ax: Axes, bins=None, **kwargs):
         if bins is None:
             vmin, vmax = (np.min(self.num_caustic_crossings) - 0.5, 
-                          np.max(self.num_caustic_crossings) + 1 + 0.5)
-            bins = np.arange(vmin, vmax, 1)
+                          np.max(self.num_caustic_crossings) + 0.5)
+            bins = np.arange(vmin, vmax + 1, 1)
 
         ax.hist(self.num_caustic_crossings.ravel(), bins=bins, density=True, **kwargs)
 

@@ -2,7 +2,9 @@ from . import lib_ccf
 from microlensing.Stars.stars import Stars
 
 import numpy as np
-import matplotlib.axes
+from matplotlib.axes import Axes
+from matplotlib.colors import Normalize
+from matplotlib.collections import LineCollection
 
 
 class CCF(object):
@@ -361,11 +363,23 @@ class CCF(object):
 
         return dists
 
-    def plot_critical_curves(self, ax: matplotlib.axes.Axes, **kwargs):
-        if 'c' not in kwargs.keys() and 'color' not in kwargs.keys():
-            kwargs['c'] = 'black'
-        
-        ax.plot(self.critical_curves[:,:,0].T, self.critical_curves[:,:,1].T, **kwargs)
+    def plot_critical_curves(self, ax: Axes, color='black', cmap='viridis', plot_phase=False, **kwargs):
+
+        if plot_phase:
+            norm = Normalize(0, 2 * np.pi)
+
+            lc = LineCollection(np.concatenate([self.critical_curves[:,:-1],
+                                                self.critical_curves[:,1:]],
+                                               axis=2).reshape(-1,2,2),
+                                array = np.repeat([np.arange(0, self.num_phi) * 2 * np.pi / self.num_phi],
+                                                  self.num_roots, axis=0).ravel(),
+                                cmap=cmap, norm=norm)
+            line = ax.add_collection(lc)
+            cbar = ax.get_figure().colorbar(line, label = '$\\phi$')
+            cbar.set_ticks([0, np.pi, 2 * np.pi])
+            cbar.set_ticklabels([0, '$\\pi$', '$2\\pi$'])
+        else:
+            ax.plot(self.critical_curves[:,:,0].T, self.critical_curves[:,:,1].T, color=color, **kwargs)
 
         if self.theta_star == 1:
             ax.set_xlabel('$x_1 / \\theta_★$')
@@ -374,11 +388,23 @@ class CCF(object):
             ax.set_xlabel('$x_1$')
             ax.set_ylabel('$x_2$')
 
-    def plot_caustics(self, ax: matplotlib.axes.Axes, **kwargs):
-        if 'c' not in kwargs.keys() and 'color' not in kwargs.keys():
-            kwargs['c'] = 'black'
-        
-        ax.plot(self.caustics[:,:,0].T, self.caustics[:,:,1].T, **kwargs)
+    def plot_caustics(self, ax: Axes, color='black', cmap='viridis', plot_phase=False, **kwargs):
+
+        if plot_phase:
+            norm = Normalize(0, 2 * np.pi)
+
+            lc = LineCollection(np.concatenate([self.caustics[:,:-1],
+                                                self.caustics[:,1:]],
+                                               axis=2).reshape(-1,2,2),
+                                array = np.repeat([np.arange(0, self.num_phi) * 2 * np.pi / self.num_phi],
+                                                  self.num_roots, axis=0).ravel(),
+                                cmap=cmap, norm=norm)
+            line = ax.add_collection(lc)
+            cbar = ax.get_figure().colorbar(line, label = '$\\phi$')
+            cbar.set_ticks([0, np.pi, 2 * np.pi])
+            cbar.set_ticklabels([0, '$\\pi$', '$2\\pi$'])
+        else:
+            ax.plot(self.caustics[:,:,0].T, self.caustics[:,:,1].T, color=color, **kwargs)
 
         if self.theta_star == 1:
             ax.set_xlabel('$y_1 / \\theta_★$')
@@ -387,14 +413,15 @@ class CCF(object):
             ax.set_xlabel('$y_1$')
             ax.set_ylabel('$y_2$')
 
-    def plot_mu_length_scales_hist(self, ax: matplotlib.axes.Axes, bins=None, where=..., **kwargs):
-        if bins is None:
-            vmin, vmax = (np.min(np.log10(self.mu_length_scales[where])), 
-                          np.max(np.log10(self.mu_length_scales[where])))
-            bins = np.arange(vmin - 0.01, vmax + 0.01, 0.01)
+    def plot_mu_length_scales_hist(self, ax: Axes, bins=None, dw=0.01, where=..., **kwargs):
+        dat = np.log10(self.mu_length_scales[where])
+        weights = self.mu_length_scales_weights[where]
 
-        ax.hist(np.log10(self.mu_length_scales[where]).ravel(), 
-                weights=self.mu_length_scales_weights[where].ravel(), 
+        if bins is None:
+            vmin, vmax = (np.min(dat), np.max(dat))
+            bins = np.arange(vmin - dw, vmax + dw, dw)
+
+        ax.hist(dat.ravel(), weights=weights.ravel(), 
                 density=True, bins=bins, **kwargs)
         
         if self.theta_star == 1:

@@ -442,26 +442,37 @@ class IPM(object):
             raise ValueError("magnifications_saddles is None")
         return -2.5 * np.log10(self.magnifications_saddles / np.abs(self.mu_ave))
     
+    @property
+    def extent(self):
+        return np.array([[(self.center[0] - self.half_length[0]),
+                          (self.center[0] + self.half_length[0])],
+                         [(self.center[1] - self.half_length[1]),
+                          (self.center[1] + self.half_length[1])]])
+    
     def save(self):
         if not self.lib.save(self.obj, self.verbose):
             raise Exception("Error saving IPM")
 
-    def plot(self, ax: matplotlib.axes.Axes, **kwargs):
+    def plot(self, ax: matplotlib.axes.Axes, cmap='viridis', plot_magnitudes=False, **kwargs):
+        if plot_magnitudes:
+            dat = self.magnitudes
+            cmap = cmap + '_r'
+        else:
+            dat = np.log10(self.magnifications)
+
+        # if min and max aren't given, use the inner 95 percent of the data
         if 'vmin' not in kwargs.keys():
-            kwargs['vmin'] = np.percentile(self.magnitudes.ravel(), 2.5)
+            kwargs['vmin'] = np.percentile(dat, 2.5)
         if 'vmax' not in kwargs.keys():
-            kwargs['vmax'] = np.percentile(self.magnitudes.ravel(), 97.5)
-        if 'cmap' not in kwargs.keys():
-            kwargs['cmap'] = 'viridis_r'
+            kwargs['vmax'] = np.percentile(dat, 97.5)
 
-        extent = [(self.center[0] - self.half_length[0]),
-                  (self.center[0] + self.half_length[0]),
-                  (self.center[1] - self.half_length[1]),
-                  (self.center[1] + self.half_length[1])]
-
-        img = ax.imshow(self.magnitudes, extent=extent, **kwargs)
-        cbar = ax.get_figure().colorbar(img, label='microlensing $\\Delta m$ (magnitudes)')
-        cbar.ax.invert_yaxis()
+        img = ax.imshow(dat, extent=self.extent.ravel(), cmap=cmap, **kwargs)
+        cbar = ax.get_figure().colorbar(img)
+        if plot_magnitudes:
+            cbar.set_label('microlensing $\\Delta m$ (magnitudes)')
+            cbar.ax.invert_yaxis()
+        else:
+            cbar.set_label('$\\log\\mu$')
 
         if self.theta_star == 1:
             ax.set_xlabel('$y_1 / \\theta_★$')
@@ -470,13 +481,22 @@ class IPM(object):
             ax.set_xlabel('$y_1$')
             ax.set_ylabel('$y_2$')
 
-    def plot_hist(self, ax: matplotlib.axes.Axes, bins=None, **kwargs):
+    def plot_hist(self, ax: matplotlib.axes.Axes, bins=None, dw=0.01, plot_magnitudes=False, **kwargs):
+        if plot_magnitudes:
+            dat = self.magnitudes.ravel()
+        else:
+            dat = np.log10(self.magnifications.ravel())
+
         if bins is None:
-            vmin, vmax = (np.min(self.magnitudes), np.max(self.magnitudes))
-            bins = np.arange(vmin - 0.01, vmax + 0.01, 0.01)
+            vmin, vmax = (np.min(dat), np.max(dat))
+            bins = np.arange(vmin - dw, vmax + dw, dw)
 
-        ax.hist(self.magnitudes.ravel(), bins=bins, density=True, **kwargs)
+        ax.hist(dat, bins=bins, density=True, **kwargs)
 
-        ax.set_xlabel('microlensing $\\Delta m$ (magnitudes)')
-        ax.set_ylabel('p($\\Delta m$)')
-        ax.invert_xaxis()
+        if plot_magnitudes:
+            ax.set_xlabel('microlensing $\\Delta m$ (magnitudes)')
+            ax.set_ylabel('p($\\Delta m$)')
+            ax.invert_xaxis()
+        else:
+            ax.set_xlabel('$\\log\\mu$')
+            ax.set_ylabel('p($\\log\\mu$)')

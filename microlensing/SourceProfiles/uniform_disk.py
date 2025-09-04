@@ -68,4 +68,7 @@ class UniformDisks():
 
     @property
     def half_light_radii(self):
-        return self.radii / np.sqrt(2)
+        try:
+            return self.radii / np.sqrt(2).get()
+        except AttributeError:
+            return self.radii / np.sqrt(2)
