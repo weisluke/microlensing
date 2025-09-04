@@ -398,7 +398,27 @@ class MIF(object):
     def save(self):
         if not self.lib.save(self.obj, self.verbose):
             raise Exception("Error saving MIF")
-        
+
+    # contours containing 90, 99, and 99.9 % of the magnification on average
+    @property
+    def c90(self):
+        return np.array([[(self.y1 - self.stars.r90) / np.abs(1 - self.kappa_tot + self.shear),
+                          (self.y1 + self.stars.r90) / np.abs(1 - self.kappa_tot + self.shear)],
+                         [(self.y2 - self.stars.r90) / np.abs(1 - self.kappa_tot - self.shear),
+                          (self.y2 + self.stars.r90) / np.abs(1 - self.kappa_tot - self.shear)]])
+    @property
+    def c99(self):
+        return np.array([[(self.y1 - self.stars.r99) / np.abs(1 - self.kappa_tot + self.shear),
+                          (self.y1 + self.stars.r99) / np.abs(1 - self.kappa_tot + self.shear)],
+                         [(self.y2 - self.stars.r99) / np.abs(1 - self.kappa_tot - self.shear),
+                          (self.y2 + self.stars.r99) / np.abs(1 - self.kappa_tot - self.shear)]])
+    @property
+    def c999(self):
+        return np.array([[(self.y1 - self.stars.r999) / np.abs(1 - self.kappa_tot + self.shear),
+                          (self.y1 + self.stars.r999) / np.abs(1 - self.kappa_tot + self.shear)],
+                         [(self.y2 - self.stars.r999) / np.abs(1 - self.kappa_tot - self.shear),
+                          (self.y2 + self.stars.r999) / np.abs(1 - self.kappa_tot - self.shear)]])
+
     @property
     def bins(self):
         try:
@@ -461,35 +481,30 @@ class MIF(object):
     def magnitudes(self):
         return -2.5 * np.log10(np.abs(self.magnifications / self.mu_ave))
 
-    def plot(self, ax: matplotlib.axes.Axes, 
-             r=1, is_ellipse=True, log_area=False, mu_min=10**-3,
-             **kwargs):
-        if 's' not in kwargs.keys():
-            kwargs['s'] = 1
-        if 'facecolor' not in kwargs.keys() and 'fc' not in kwargs.keys():
-            kwargs['facecolor'] = 'black'
-        if 'edgecolor' not in kwargs.keys() and 'ec' not in kwargs.keys():
-            kwargs['edgecolor'] = 'black'
+    def plot_images(self, ax: matplotlib.axes.Axes, s=1,
+                    is_ellipse=True, log_area=False, mu_min=10**-3,
+                    **kwargs):
 
-        ax.add_collection(plotting.Stars(self.stars.positions, kwargs['s'] * self.stars.masses,
-                                         minmass = np.min(self.stars.masses),
-                                         maxmass = np.max(self.stars.masses),
-                                         facecolor=kwargs['facecolor'], edgecolor=kwargs['edgecolor']))
-        
         ax.add_collection(plotting.Images(self.images, self.images_inv_mags,
-                                          r, is_ellipse, log_area, mu_min))
-        
-        r_img = 10 * self.theta_star * np.sqrt(self.kappa_star * self.stars.mean_mass2_actual / self.stars.mean_mass_actual)
-        xlim = r_img / np.abs(1 - self.kappa_tot + self.shear) * np.array([-1, 1])
-        ylim = r_img / np.abs(1 - self.kappa_tot - self.shear) * np.array([-1, 1])
-        ax.set_xlim(xlim)
-        ax.set_ylim(ylim)
+                                          s, is_ellipse, log_area, mu_min))
 
-    def plot_lightcurve(self, ax: matplotlib.axes.Axes):
+    def plot_image_lines(self, ax: matplotlib.axes.Axes, color='black', **kwargs):
 
-        ax.plot(self.distances / self.theta_star, self.magnitudes)
+        for what in self.image_lines:
+            ax.plot(*what.T, color=color, **kwargs)
 
-        ax.invert_yaxis()
+    def plot_lightcurve(self, ax: matplotlib.axes.Axes, plot_magnitudes=False, **kwargs):
+        if plot_magnitudes:
+            dat = self.magnitudes
+        else:
+            dat = np.log10(self.magnifications)
+
+        ax.plot(self.distances / self.theta_star, dat, **kwargs)
 
         ax.set_xlabel('(distance from $w_0$) / $\\theta_★$')
-        ax.set_ylabel('microlensing $\\Delta m$ (magnitudes)')
+        if plot_magnitudes:
+            ax.set_ylabel('microlensing $\\Delta m$ (magnitudes)')
+            ax.invert_yaxis()
+        else:
+            ax.set_ylabel('$\\log\\mu$')
+

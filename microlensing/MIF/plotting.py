@@ -1,27 +1,9 @@
 import numpy as np
-from matplotlib.path import Path
-from matplotlib.patches import PathPatch, Ellipse
+from matplotlib.patches import Ellipse
 from matplotlib.collections import PatchCollection
 import shapely
 import shapely.plotting
 
-
-class Star(PathPatch):
-    def __init__(self, center, area, **kwargs):
-        r = np.sqrt(area * (3 - np.tan(np.pi / 10)**2) / (10 * np.tan(np.pi / 10)))
-        coords = r * np.exp(1j * (np.pi / 2 + 2 * 2 * np.pi / 5 * np.array([0,1,2,3,4])))
-        coords += center[0] + 1j * center[1]
-        coords = np.array([coords.real, coords.imag]).T
-        path = Path(coords)
-        PathPatch.__init__(self, path, **kwargs)
-
-class Stars(PatchCollection):
-    def __init__(self, centers, masses, minmass = 1, maxmass=1, **kwargs):
-        if maxmass != minmass:
-            areas = (masses - minmass) / (maxmass - minmass)
-        else:
-            areas = masses
-        PatchCollection.__init__(self, [Star(center, area) for center, area in zip(centers, areas)], **kwargs)
 
 def get_intersections(polygons1, polygons2):
     inter = [shapely.intersection(polygon, polygons2) for polygon in polygons1]
@@ -30,7 +12,7 @@ def get_intersections(polygons1, polygons2):
 
 class Images(PatchCollection):
 
-    def __init__(self, positions, invmags, r=1, is_ellipse=True, log_area=False, mu_min=10**-3, **kwargs):
+    def __init__(self, positions, invmags, s=1, is_ellipse=True, log_area=False, mu_min=10**-3, **kwargs):
         
         colors = {-1: '#ff7700',  # saddlepoints are orange
                    0: '#ff7700',  # saddlepoints are orange if log_area makes eigvals 0
@@ -57,9 +39,9 @@ class Images(PatchCollection):
             eigvals[:, 0] = np.sign(eigvals[:,0]) * new_eigvals_0
             eigvals[:, 1] = np.sign(eigvals[:,1]) * new_eigvals_1
                                         
-
-        ellipses = [Ellipse((x[0], x[1]), r * e[0], r * e[1],
-                            angle = np.arctan2(v[1, 0], v[0, 0]) * 180 / np.pi,
+        # multiply radii by s to scale area
+        ellipses = [Ellipse((x[0], x[1]), s * e[0], s * e[1],
+                            angle = np.degrees(np.arctan2(v[1, 0], v[0, 0])),
                             facecolor = colors[np.sign(e[0] * e[1])],
                             edgecolor = colors[np.sign(e[0] * e[1])])
                     for x, e, v in zip(positions, eigvals, eigvecs)]
