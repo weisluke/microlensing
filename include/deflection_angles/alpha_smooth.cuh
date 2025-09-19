@@ -1,6 +1,7 @@
 #pragma once
 
 #include "complex.cuh"
+#include "util/complex_math_util.cuh"
 #include "util/math_util.cuh"
 
 #include <numbers>
