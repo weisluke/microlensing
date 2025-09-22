@@ -1,6 +1,7 @@
 #pragma once
 
 #include "complex.cuh"
+#include "util/complex_math_util.cuh"
 
 
 namespace microlensing
@@ -18,7 +19,7 @@ calculate the deflection angle due to the macromodel
 template <typename T>
 __host__ __device__ Complex<T> alpha_macro(Complex<T> z, T kappa, T gamma)
 {
-    return kappa * z - gamma * z.conj();
+    return Ksop(z, kappa, -z.conj(), gamma);
 }
 
 /******************************************************************************
