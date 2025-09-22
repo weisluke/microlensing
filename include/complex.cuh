@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include "util/math_util.cuh"
+
 #include <cmath>
 #include <iostream>
 
@@ -138,15 +140,21 @@ public:
 	}
 	template <typename U> __host__ __device__ friend Complex operator+(Complex c1, Complex<U> c2)
 	{
-		return Complex(c1.re + c2.re, c1.im + c2.im);
+		Complex res = c1;
+		res += c2;
+		return res;
 	}
 	template <typename U> __host__ __device__ friend Complex operator+(Complex c1, U num)
 	{
-		return Complex(c1.re + num, c1.im);
+		Complex res = c1;
+		res += num;
+		return res;
 	}
 	template <typename U> __host__ __device__ friend Complex operator+(T num, Complex<U> c1)
 	{
-		return Complex(num + c1.re, c1.im);
+		Complex res = num;
+		res += c1;
+		return res;
 	}
 
 	/******************************************************************************
@@ -165,15 +173,21 @@ public:
 	}
 	template <typename U> __host__ __device__ friend Complex operator-(Complex c1, Complex<U> c2)
 	{
-		return Complex(c1.re - c2.re, c1.im - c2.im);
+		Complex res = c1;
+		res -= c2;
+		return res;
 	}
 	template <typename U> __host__ __device__ friend Complex operator-(Complex c1, U num)
 	{
-		return Complex(c1.re - num, c1.im);
+		Complex res = c1;
+		res -= num;
+		return res;
 	}
 	template <typename U> __host__ __device__ friend Complex operator-(T num, Complex<U> c1)
 	{
-		return Complex(num - c1.re, -c1.im);
+		Complex res = num;
+		res -= c1;
+		return res;
 	}
 
 	/******************************************************************************
@@ -183,8 +197,8 @@ public:
 	******************************************************************************/
 	template <typename U> __host__ __device__ Complex& operator*=(Complex<U> c1)
 	{
-		T new_re = re * c1.re - im * c1.im;
-		T new_im = re * c1.im + im * c1.re;
+		T new_re = Ksop(re, c1.re, -im, c1.im);
+		T new_im = Ksop(re, c1.im, im, c1.re);
 		re = new_re;
 		im = new_im;
 		return *this;
@@ -197,15 +211,21 @@ public:
 	}
 	template <typename U> __host__ __device__ friend Complex operator*(Complex c1, Complex<U> c2)
 	{
-		return Complex(c1.re * c2.re - c1.im * c2.im, c1.re * c2.im + c1.im * c2.re);
+		Complex res = c1;
+		res *= c2;
+		return res;
 	}
 	template <typename U> __host__ __device__ friend Complex operator*(Complex c1, U num)
 	{
-		return Complex(c1.re * num, c1.im * num);
+		Complex res = c1;
+		res *= num;
+		return res;
 	}
 	template <typename U> __host__ __device__ friend Complex operator*(T num, Complex<U> c1)
 	{
-		return Complex(num * c1.re, num * c1.im);
+		Complex res = num;
+		res *= c1;
+		return res;
 	}
 
 	/******************************************************************************
@@ -217,22 +237,23 @@ public:
 	******************************************************************************/
 	template <typename U> __host__ __device__ Complex& operator/=(Complex<U> c1)
 	{
+		T f1, f2; //scale factors to avoid under/over flow
 		T new_re;
 		T new_im;
 		
-		//use Smith's formula
 		if (std::abs(c1.im) < std::abs(c1.re))
 		{
-			T f = c1.im / c1.re;
-			new_re = (re + im * f) / (c1.re + c1.im * f);
-			new_im = (im - re * f) / (c1.re + c1.im * f);
+			f1 = c1.re / c1.re; //purely to cast 1 to type T
+			f2 = c1.im / c1.re;
 		}
 		else
 		{
-			T f = c1.re / c1.im;
-			new_re = (re * f + im) / (c1.re * f + c1.im);
-			new_im = (im * f - re) / (c1.re * f + c1.im);
+			f1 = c1.re / c1.im;
+			f2 = c1.im / c1.im;
 		}
+		//use Smith's formula
+		new_re = Ksop(re, f1, im, f2) / Ksop(c1.re, f1, c1.im, f2);
+		new_im = Ksop(im, f1, -re, f2) / Ksop(c1.re, f1, c1.im, f2);
 
 		re = new_re;
 		im = new_im;
@@ -246,37 +267,21 @@ public:
 	}
 	template <typename U> __host__ __device__ friend Complex operator/(Complex c1, Complex<U> c2)
 	{
-		//use Smith's formula
-		if (std::abs(c2.im) < std::abs(c2.re))
-		{
-			T f = c2.im / c2.re;
-			return Complex((c1.re + c1.im * f) / (c2.re + c2.im * f), 
-							(c1.im - c1.re * f) / (c2.re + c2.im * f));
-		}
-		else
-		{
-			T f = c2.re / c2.im;
-			return Complex((c1.re * f + c1.im) / (c2.re * f + c2.im), 
-							(c1.im * f - c1.re) / (c2.re * f + c2.im));
-		}
+		Complex res = c1;
+		res /= c2;
+		return res;
 	}
 	template <typename U> __host__ __device__ friend Complex operator/(Complex c1, U num)
 	{
-		return Complex(c1.re / num, c1.im / num);
+		Complex res = c1;
+		res /= num;
+		return res;
 	}
 	template <typename U> __host__ __device__ friend Complex operator/(T num, Complex<U> c1)
 	{
-		//use Smith's formula
-		if (std::abs(c1.im) < std::abs(c1.re))
-		{
-			T f = c1.im / c1.re;
-			return Complex(num / (c1.re + c1.im * f), (-num * f) / (c1.re + c1.im * f));
-		}
-		else
-		{
-			T f = c1.re / c1.im;
-			return Complex((num * f) / (c1.re * f + c1.im), -num / (c1.re * f + c1.im));
-		}
+		Complex res = num;
+		res /= c1;
+		return res;
 	}
 
 	/******************************************************************************
