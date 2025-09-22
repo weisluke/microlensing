@@ -76,7 +76,7 @@ __host__ __device__ T Ksop(T a, T b, T c = 0, T d = 0)
 /******************************************************************************
 separate implementation for ints, since there is no fma for ints
 ******************************************************************************/
-__host__ __device__ inline int Ksop(int a, int b, int c = 0, int d = 0)
+__host__ __device__ int Ksop(int a, int b, int c = 0, int d = 0)
 {
     return a * b + c * d;
 }
