@@ -1,6 +1,7 @@
 #pragma once
 
 #include "complex.cuh"
+#include "util/complex_math_util.cuh"
 #include "util/math_util.cuh"
 
 
@@ -110,76 +111,17 @@ public:
 		}
 
 		T result = 0;
-		T dx;
-		T dy;
 
 		/******************************************************************************
 		the shoelace formula adds x_i * y_i+1 - x_i+1 * y_i to the area
-		to avoid floating point precision loss, this is rewritten as adding
-		x_i * (y_i+1 - y_i) - y_i * (x_i+1 - x_1)
 		******************************************************************************/
 		for (int i = 0; i < numsides; i++)
 		{
-			dx = points[(i + 1) % numsides].re - points[i].re;
-			dy = points[(i + 1) % numsides].im - points[i].im;
-
-			result += dy * points[i].re - dx * points[i].im;
+			result += Ksop(points[i].re, points[(i + 1) % numsides].im,
+						   -points[(i + 1) % numsides].re, points[i].im);
 		}
 
 		return result / 2;
-	}
-
-	/******************************************************************************
-	find the x and y intersections of a line connecting two points at the
-	provided x or y values
-	******************************************************************************/
-	__host__ __device__ T get_x_intersection(T y, Complex<T> p1, Complex<T> p2)
-	{
-		T dx = (p2.re - p1.re);
-		/******************************************************************************
-		if it is a vertical line, return the x coordinate of p1
-		******************************************************************************/
-		if (dx == 0)
-		{
-			return p1.re;
-		}
-		T log_dx = log(fabs(dx));
-		T dy = (p2.im - p1.im);
-		T log_dy = log(fabs(dy));
-		
-		/******************************************************************************
-		parameter t in parametric equation of a line
-		x = x0 + t * dx
-		y = y0 + t * dy
-		******************************************************************************/
-		T log_t = log(fabs(y - p1.im)) - log_dy;
-		
-		T x = p1.re + sgn(y - p1.im) * sgn(dy) * sgn(dx) * exp(log_t + log_dx);
-		return x;
-	}
-	__host__ __device__ T get_y_intersection(T x, Complex<T> p1, Complex<T> p2)
-	{
-		T dy = (p2.im - p1.im);
-		/******************************************************************************
-		if it is a horizontal line, return the y coordinate of p1
-		******************************************************************************/
-		if (dy == 0)
-		{
-			return p1.im;
-		}
-		T log_dy = log(fabs(dy));
-		T dx = (p2.re - p1.re);
-		T log_dx = log(fabs(dx));
-
-		/******************************************************************************
-		parameter t in parametric equation of a line
-		x = x0 + t * dx
-		y = y0 + t * dy
-		******************************************************************************/
-		T log_t = log(fabs(x - p1.re)) - log_dx;
-		
-		T y = p1.im + sgn(x - p1.re) * sgn(dx) * sgn(dy) * exp(log_t + log_dy);
-		return y;
 	}
 
 	/******************************************************************************
@@ -249,7 +191,7 @@ public:
 				left_poly.add_point(points[i]);
 				if (points[(i + 1) % numsides].re > x)
 				{
-					T y = this->get_y_intersection(x, points[i], points[(i + 1) % numsides]);
+					T y = get_y_intersection(x, points[i], points[(i + 1) % numsides]);
 
 					left_poly.add_point(Complex<T>(x, y));
 					right_poly.add_point(Complex<T>(x, y));
@@ -260,7 +202,7 @@ public:
 				right_poly.add_point(points[i]);
 				if (points[(i + 1) % numsides].re < x)
 				{
-					T y = this->get_y_intersection(x, points[i], points[(i + 1) % numsides]);
+					T y = get_y_intersection(x, points[i], points[(i + 1) % numsides]);
 
 					left_poly.add_point(Complex<T>(x, y));
 					right_poly.add_point(Complex<T>(x, y));
@@ -296,7 +238,7 @@ public:
 				bottom_poly.add_point(points[i]);
 				if (points[(i + 1) % numsides].im > y)
 				{
-					T x = this->get_x_intersection(y, points[i], points[(i + 1) % numsides]);
+					T x = get_x_intersection(y, points[i], points[(i + 1) % numsides]);
 
 					bottom_poly.add_point(Complex<T>(x, y));
 					top_poly.add_point(Complex<T>(x, y));
@@ -307,7 +249,7 @@ public:
 				top_poly.add_point(points[i]);
 				if (points[(i + 1) % numsides].im < y)
 				{
-					T x = this->get_x_intersection(y, points[i], points[(i + 1) % numsides]);
+					T x = get_x_intersection(y, points[i], points[(i + 1) % numsides]);
 
 					bottom_poly.add_point(Complex<T>(x, y));
 					top_poly.add_point(Complex<T>(x, y));
