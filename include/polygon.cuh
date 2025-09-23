@@ -110,20 +110,14 @@ public:
 		}
 
 		T result = 0;
-		T dx;
-		T dy;
 
 		/******************************************************************************
 		the shoelace formula adds x_i * y_i+1 - x_i+1 * y_i to the area
-		to avoid floating point precision loss, this is rewritten as adding
-		x_i * (y_i+1 - y_i) - y_i * (x_i+1 - x_1)
 		******************************************************************************/
 		for (int i = 0; i < numsides; i++)
 		{
-			dx = points[(i + 1) % numsides].re - points[i].re;
-			dy = points[(i + 1) % numsides].im - points[i].im;
-
-			result += dy * points[i].re - dx * points[i].im;
+			result += Ksop(points[i].re, points[(i + 1) % numsides].im,
+						   -points[(i + 1) % numsides].re, points[i].im);
 		}
 
 		return result / 2;
