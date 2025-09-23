@@ -27,6 +27,61 @@ __host__ __device__ int boxcar(Complex<T> z, Complex<T> corner)
 }
 
 /******************************************************************************
+find the x and y intersections of a line connecting two points at the
+provided x or y values
+******************************************************************************/
+template <typename T>
+__host__ __device__ T get_x_intersection(T y, Complex<T> p1, Complex<T> p2)
+{
+	T dx = (p2.re - p1.re);
+	/******************************************************************************
+	if it is a vertical line, return the x coordinate of p1
+	******************************************************************************/
+	if (dx == 0)
+	{
+		return p1.re;
+	}
+	T log_dx = log(fabs(dx));
+	T dy = (p2.im - p1.im);
+	T log_dy = log(fabs(dy));
+	
+	/******************************************************************************
+	parameter t in parametric equation of a line
+	x = x0 + t * dx
+	y = y0 + t * dy
+	******************************************************************************/
+	T log_t = log(fabs(y - p1.im)) - log_dy;
+	
+	T x = p1.re + sgn(y - p1.im) * sgn(dy) * sgn(dx) * exp(log_t + log_dx);
+	return x;
+}
+template <typename T>
+__host__ __device__ T get_y_intersection(T x, Complex<T> p1, Complex<T> p2)
+{
+	T dy = (p2.im - p1.im);
+	/******************************************************************************
+	if it is a horizontal line, return the y coordinate of p1
+	******************************************************************************/
+	if (dy == 0)
+	{
+		return p1.im;
+	}
+	T log_dy = log(fabs(dy));
+	T dx = (p2.re - p1.re);
+	T log_dx = log(fabs(dx));
+
+	/******************************************************************************
+	parameter t in parametric equation of a line
+	x = x0 + t * dx
+	y = y0 + t * dy
+	******************************************************************************/
+	T log_t = log(fabs(x - p1.re)) - log_dx;
+	
+	T y = p1.im + sgn(x - p1.re) * sgn(dx) * sgn(dy) * exp(log_t + log_dy);
+	return y;
+}
+
+/******************************************************************************
 Kahan sum of products algorithm for a pair of complex numbers multiplied by
 scalars
 
