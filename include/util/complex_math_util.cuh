@@ -3,6 +3,8 @@
 #include "complex.cuh"
 #include "util/math_util.cuh"
 
+#include <cmath>
+
 
 /******************************************************************************
 2-Dimensional Boxcar Function
@@ -41,18 +43,18 @@ __host__ __device__ T get_x_intersection(T y, Complex<T> p1, Complex<T> p2)
 	{
 		return p1.re;
 	}
-	T log_dx = log(fabs(dx));
+	T log_dx = std::log(std::abs(dx));
 	T dy = (p2.im - p1.im);
-	T log_dy = log(fabs(dy));
+	T log_dy = std::log(std::abs(dy));
 	
 	/******************************************************************************
 	parameter t in parametric equation of a line
 	x = x0 + t * dx
 	y = y0 + t * dy
 	******************************************************************************/
-	T log_t = log(fabs(y - p1.im)) - log_dy;
+	T log_t = std::log(std::abs(y - p1.im)) - log_dy;
 	
-	T x = p1.re + sgn(y - p1.im) * sgn(dy) * sgn(dx) * exp(log_t + log_dx);
+	T x = p1.re + sgn(y - p1.im) * sgn(dy) * sgn(dx) * std::exp(log_t + log_dx);
 	return x;
 }
 template <typename T>
@@ -66,18 +68,18 @@ __host__ __device__ T get_y_intersection(T x, Complex<T> p1, Complex<T> p2)
 	{
 		return p1.im;
 	}
-	T log_dy = log(fabs(dy));
+	T log_dy = std::log(std::abs(dy));
 	T dx = (p2.re - p1.re);
-	T log_dx = log(fabs(dx));
+	T log_dx = std::log(std::abs(dx));
 
 	/******************************************************************************
 	parameter t in parametric equation of a line
 	x = x0 + t * dx
 	y = y0 + t * dy
 	******************************************************************************/
-	T log_t = log(fabs(x - p1.re)) - log_dx;
+	T log_t = std::log(std::abs(x - p1.re)) - log_dx;
 	
-	T y = p1.im + sgn(x - p1.re) * sgn(dx) * sgn(dy) * exp(log_t + log_dy);
+	T y = p1.im + sgn(x - p1.re) * sgn(dx) * sgn(dy) * std::exp(log_t + log_dy);
 	return y;
 }
 
