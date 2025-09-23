@@ -3,12 +3,15 @@
 #include "complex.cuh"
 #include "util/util.cuh"
 
+#include <cstdint> //for std::uintmax_t
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <new>
 #include <numeric> //for std::reduce
 #include <string>
 #include <vector>
+#include <system_error> //for std::error_code
 
 
 /******************************************************************************

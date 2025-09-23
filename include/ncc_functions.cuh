@@ -6,14 +6,6 @@
 #include "util/math_util.cuh"
 #include "util/util.cuh"
 
-#include <cstdint> //for std::uintmax_t
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <new>
-#include <string>
-#include <system_error> //for std::error_code
-
 
 /******************************************************************************
 determine whether a point lies within a rectangular region centered on the
