@@ -1,11 +1,13 @@
 #pragma once
 
 #include "complex.cuh"
+#include "mass_functions.cuh"
 #include "mass_functions/mass_function_base.cuh" //for massfunctions::MassFunction<T>
 #include "star.cuh"
 #include "stopwatch.hpp"
 #include "tree_node.cuh"
 
+#include <limits> //for std::numeric_limits
 #include <memory> //for std::shared_ptr
 #include <string>
 #include <vector>
@@ -181,6 +183,61 @@ protected:
 		}
 
 		print_verbose("Done clearing memory.\n\n", verbose, 3);
+		return true;
+	}
+
+	bool check_input_params(int verbose)
+	{
+		print_verbose("Checking input parameters...\n", verbose, 3);
+
+		if (kappa_tot < std::numeric_limits<T>::min())
+		{
+			std::cerr << "Error. kappa_tot must be >= " << std::numeric_limits<T>::min() << "\n";
+			return false;
+		}
+
+		if (kappa_star < std::numeric_limits<T>::min())
+		{
+			std::cerr << "Error. kappa_star must be >= " << std::numeric_limits<T>::min() << "\n";
+			return false;
+		}
+		if (starfile == "" && kappa_star > kappa_tot)
+		{
+			std::cerr << "Error. kappa_star must be <= kappa_tot\n";
+			return false;
+		}
+
+		if (starfile == "" && theta_star < std::numeric_limits<T>::min())
+		{
+			std::cerr << "Error. theta_star must be >= " << std::numeric_limits<T>::min() << "\n";
+			return false;
+		}
+
+		if (starfile == "" && !massfunctions::MASS_FUNCTIONS<T>.count(mass_function_str))
+		{
+			std::cerr << "Error. mass_function must be equal, uniform, Salpeter, Kroupa, or optical_depth.\n";
+			return false;
+		}
+
+		if (starfile == "" && m_solar < std::numeric_limits<T>::min())
+		{
+			std::cerr << "Error. m_solar must be >= " << std::numeric_limits<T>::min() << "\n";
+			return false;
+		}
+
+		if (starfile == "" && m_lower < std::numeric_limits<T>::min())
+		{
+			std::cerr << "Error. m_lower must be >= " << std::numeric_limits<T>::min() << "\n";
+			return false;
+		}
+
+		if (starfile == "" && m_upper < m_lower)
+		{
+			std::cerr << "Error. m_upper must be >= m_lower.\n";
+			return false;
+		}
+
+		print_verbose("Done checking input parameters.\n\n", verbose, 3);
 		return true;
 	}
 
