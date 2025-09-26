@@ -10,6 +10,7 @@
 #include "mass_functions/kroupa.cuh"
 #include "mass_functions/salpeter.cuh"
 #include "mass_functions/uniform.cuh"
+#include "microlensing.cuh"
 #include "star.cuh"
 #include "stopwatch.hpp"
 #include "tree_node.cuh"
@@ -33,7 +34,7 @@
 
 
 template <typename T>
-class CCF
+class CCF : public Microlensing
 {
 
 public:
@@ -55,12 +56,9 @@ public:
 	std::string starfile = "";
 	int num_phi = 100;
 	int num_branches = 1;
-	int random_seed = 0;
-	int write_stars = 1;
 	int write_critical_curves = 1;
 	int write_caustics = 1;
 	int write_mu_length_scales = 0;
-	std::string outfile_prefix = "./";
 
 
 private:

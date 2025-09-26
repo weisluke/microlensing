@@ -10,6 +10,7 @@
 #include "mass_functions/kroupa.cuh"
 #include "mass_functions/salpeter.cuh"
 #include "mass_functions/uniform.cuh"
+#include "microlensing.cuh"
 #include "star.cuh"
 #include "stopwatch.hpp"
 #include "tree_node.cuh"
@@ -35,7 +36,7 @@
 
 
 template <typename T>
-class IPM
+class IPM : public Microlensing
 {
 
 public:
@@ -59,12 +60,9 @@ public:
 	Complex<T> half_length_y = Complex<T>(5, 5);
 	Complex<int> num_pixels_y = Complex<int>(1000, 1000);
 	int num_rays_y = 1; //number density of rays per pixel in the source plane
-	int random_seed = 0;
-	int write_stars = 1;
 	int write_maps = 1;
 	int write_parities = 0;
 	int write_histograms = 1;
-	std::string outfile_prefix = "./";
 
 
 private:
