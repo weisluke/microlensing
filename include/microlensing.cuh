@@ -1,5 +1,7 @@
 #pragma once
 
+#include "stopwatch.hpp"
+
 #include <string>
 
 
@@ -35,6 +37,25 @@ protected:
 	protected for IPM, will be made public for CCF
 	******************************************************************************/
 	int num_stars = 137;
+
+	/******************************************************************************
+	constant variables
+	******************************************************************************/
+	const std::string outfile_type = ".bin";
+	const int MAX_TAYLOR_SMOOTH = 101; //arbitrary limit to the expansion order to avoid numerical precision loss from high degree polynomials
+
+	/******************************************************************************
+	variables for cuda device, kernel threads, and kernel blocks
+	******************************************************************************/
+	cudaDeviceProp cuda_device_prop;
+	dim3 threads;
+	dim3 blocks;
+
+	/******************************************************************************
+	stopwatch for timing purposes
+	******************************************************************************/
+	Stopwatch stopwatch;
+	double t_elapsed;
 
 
 public:

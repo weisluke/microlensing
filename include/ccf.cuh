@@ -12,7 +12,6 @@
 #include "mass_functions/uniform.cuh"
 #include "microlensing.cuh"
 #include "star.cuh"
-#include "stopwatch.hpp"
 #include "tree_node.cuh"
 #include "util/util.cuh"
 
@@ -50,24 +49,6 @@ public:
 
 
 private:
-	/******************************************************************************
-	constant variables
-	******************************************************************************/
-	const std::string outfile_type = ".bin";
-	const int MAX_TAYLOR_SMOOTH = 101; //arbitrary limit to the expansion order to avoid numerical precision loss from high degree polynomials
-
-	/******************************************************************************
-	variables for cuda device, kernel threads, and kernel blocks
-	******************************************************************************/
-	cudaDeviceProp cuda_device_prop;
-	dim3 threads;
-	dim3 blocks;
-
-	/******************************************************************************
-	stopwatch for timing purposes
-	******************************************************************************/
-	Stopwatch stopwatch;
-	double t_elapsed;
 	double t_init_roots;
 	double t_ccs;
 	double t_caustics;
