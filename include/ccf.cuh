@@ -72,51 +72,6 @@ private:
 
 
 
-	bool set_cuda_devices(int verbose)
-	{
-		print_verbose("Setting device...\n", verbose, 3);
-
-		/******************************************************************************
-		check that a CUDA capable device is present
-		******************************************************************************/
-		int n_devices = 0;
-
-		cudaGetDeviceCount(&n_devices);
-		if (cuda_error("cudaGetDeviceCount", false, __FILE__, __LINE__)) return false;
-
-		if (n_devices < 1)
-		{
-			std::cerr << "Error. No CUDA capable devices detected.\n";
-			return false;
-		}
-
-		if (verbose >= 3)
-		{
-			std::cout << "Available CUDA capable devices:\n\n";
-
-			for (int i = 0; i < n_devices; i++)
-			{
-				cudaDeviceProp prop;
-				cudaGetDeviceProperties(&prop, i);
-				if (cuda_error("cudaGetDeviceProperties", false, __FILE__, __LINE__)) return false;
-
-				show_device_info(i, prop);
-			}
-		}
-
-		if (n_devices > 1)
-		{
-			print_verbose("More than one CUDA capable device detected. Defaulting to first device.\n\n", verbose, 2);
-		}
-		cudaSetDevice(0);
-		if (cuda_error("cudaSetDevice", false, __FILE__, __LINE__)) return false;
-		cudaGetDeviceProperties(&cuda_device_prop, 0);
-		if (cuda_error("cudaGetDeviceProperties", false, __FILE__, __LINE__)) return false;
-
-		print_verbose("Done setting device.\n\n", verbose, 3);
-		return true;
-	}
-
 	//optional return or not, so memory can be cleared in destructor without error checking
 	bool clear_memory(int verbose, bool return_on_error = true)
 	{
