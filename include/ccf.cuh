@@ -746,11 +746,7 @@ public:
 	{
         if (this == &other) return *this;
 
-		states = nullptr;
-		stars = nullptr;
-		temp_stars = nullptr;
-
-		binomial_coeffs = nullptr;
+		Microlensing::operator=(other);
 
 		ccs_init = nullptr;
 		ccs = nullptr;
@@ -759,8 +755,6 @@ public:
 		has_nan = nullptr;
 		caustics = nullptr;
 		mu_length_scales = nullptr;
-
-		tree = {};
 
 		return *this;
 	}

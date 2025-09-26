@@ -707,4 +707,22 @@ public:
 		tree = {};
 	}
 
+	/******************************************************************************
+	copy assignment sets this object's dynamic memory pointers to null
+	******************************************************************************/
+	Microlensing& operator=(const Microlensing& other)
+	{
+        if (this == &other) return *this;
+
+		states = nullptr;
+		stars = nullptr;
+		temp_stars = nullptr;
+
+		binomial_coeffs = nullptr;
+
+		tree = {};
+
+		return *this;
+	}
+
 };

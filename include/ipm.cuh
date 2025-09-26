@@ -821,12 +821,8 @@ public:
 	IPM& operator=(const IPM& other)
 	{
         if (this == &other) return *this;
-		
-		states = nullptr;
-		stars = nullptr;
-		temp_stars = nullptr;
 
-		binomial_coeffs = nullptr;
+		Microlensing::operator=(other);
 
 		pixels = nullptr;
 		pixels_minima = nullptr;
@@ -839,8 +835,6 @@ public:
 		log_histogram = nullptr;
 		log_histogram_minima = nullptr;
 		log_histogram_saddles = nullptr;
-
-		tree = {};
 
 		return *this;
 	}
