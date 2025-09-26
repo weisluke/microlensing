@@ -728,14 +728,8 @@ public:
 	/******************************************************************************
 	copy constructor sets this object's dynamic memory pointers to null
 	******************************************************************************/
-	CCF(const CCF& other)
+	CCF(const CCF& other) : Microlensing(other)
 	{
-		states = nullptr;
-		stars = nullptr;
-		temp_stars = nullptr;
-
-		binomial_coeffs = nullptr;
-
 		ccs_init = nullptr;
 		ccs = nullptr;
 		fin = nullptr;
@@ -743,8 +737,6 @@ public:
 		has_nan = nullptr;
 		caustics = nullptr;
 		mu_length_scales = nullptr;
-
-		tree = {};
 	}
 
 	/******************************************************************************

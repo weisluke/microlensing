@@ -685,4 +685,26 @@ public:
 
 	}
 
+	/******************************************************************************
+	class destructor clears memory with no output or error checking
+	******************************************************************************/
+	~Microlensing()
+	{
+		clear_memory(0, false);
+	}
+
+	/******************************************************************************
+	copy constructor sets this object's dynamic memory pointers to null
+	******************************************************************************/
+	Microlensing(const Microlensing& other)
+	{
+		states = nullptr;
+		stars = nullptr;
+		temp_stars = nullptr;
+
+		binomial_coeffs = nullptr;
+
+		tree = {};
+	}
+
 };

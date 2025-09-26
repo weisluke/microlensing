@@ -800,14 +800,8 @@ public:
 	/******************************************************************************
 	copy constructor sets this object's dynamic memory pointers to null
 	******************************************************************************/
-	IPM(const IPM& other)
+	IPM(const IPM& other) : Microlensing(other)
 	{
-		states = nullptr;
-		stars = nullptr;
-		temp_stars = nullptr;
-
-		binomial_coeffs = nullptr;
-
 		pixels = nullptr;
 		pixels_minima = nullptr;
 		pixels_saddles = nullptr;
@@ -819,8 +813,6 @@ public:
 		log_histogram = nullptr;
 		log_histogram_minima = nullptr;
 		log_histogram_saddles = nullptr;
-
-		tree = {};
 	}
 
 	/******************************************************************************
