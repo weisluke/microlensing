@@ -347,6 +347,36 @@ protected:
 		return true;
 	}
 
+	bool allocate_initialize_memory(int verbose)
+	{
+		print_verbose("Allocating memory...\n", verbose, 3);
+		stopwatch.start();
+
+		/******************************************************************************
+		allocate memory for stars
+		******************************************************************************/
+		cudaMallocManaged(&states, num_stars * sizeof(curandState));
+		if (cuda_error("cudaMallocManaged(*states)", false, __FILE__, __LINE__)) return false;
+		if (stars == nullptr) //if memory wasn't allocated already due to reading a star file
+		{
+			cudaMallocManaged(&stars, num_stars * sizeof(star<T>));
+			if (cuda_error("cudaMallocManaged(*stars)", false, __FILE__, __LINE__)) return false;
+		}
+		cudaMallocManaged(&temp_stars, num_stars * sizeof(star<T>));
+		if (cuda_error("cudaMallocManaged(*temp_stars)", false, __FILE__, __LINE__)) return false;
+
+		/******************************************************************************
+		allocate memory for binomial coefficients
+		******************************************************************************/
+		cudaMallocManaged(&binomial_coeffs, (2 * treenode::MAX_EXPANSION_ORDER * (2 * treenode::MAX_EXPANSION_ORDER + 3) / 2 + 1) * sizeof(int));
+		if (cuda_error("cudaMallocManaged(*binomial_coeffs)", false, __FILE__, __LINE__)) return false;
+
+		t_elapsed = stopwatch.stop();
+		print_verbose("Done allocating memory. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
+
+		return true;
+	}
+
 
 public:
 
