@@ -435,29 +435,6 @@ private:
 		END populating star array
 		******************************************************************************/
 
-
-		/******************************************************************************
-		initialize roots for centers of all branches to lie at starpos +/- 1
-		******************************************************************************/
-		print_verbose("Initializing root positions...\n", verbose, 3);
-		for (int j = 0; j < num_branches; j++)
-		{
-			int center = (num_phi / (2 * num_branches) + j * num_phi / num_branches + j) * num_roots;
-			for (int i = 0; i < num_stars; i++)
-			{
-				ccs_init[center + i] = stars[i].position + 1;
-				ccs_init[center + i + num_stars] = stars[i].position - 1;
-			}
-			int nroots_extra = num_roots - 2 * num_stars;
-			for (int i = 0; i < nroots_extra; i++)
-			{
-				ccs_init[center + 2 * num_stars + i] = corner.abs() *
-					Complex<T>(std::cos(2 * std::numbers::pi_v<T> / nroots_extra * i), 
-								std::sin(2 * std::numbers::pi_v<T> / nroots_extra * i));
-			}
-		}
-		print_verbose("Done initializing root positions.\n\n", verbose, 3);
-
 		return true;
 	}
 
@@ -653,6 +630,28 @@ private:
 
 	bool find_initial_roots(int verbose)
 	{
+		/******************************************************************************
+		initialize roots for centers of all branches to lie at starpos +/- 1
+		******************************************************************************/
+		print_verbose("Initializing root positions...\n", verbose, 3);
+		for (int j = 0; j < num_branches; j++)
+		{
+			int center = (num_phi / (2 * num_branches) + j * num_phi / num_branches + j) * num_roots;
+			for (int i = 0; i < num_stars; i++)
+			{
+				ccs_init[center + i] = stars[i].position + 1;
+				ccs_init[center + i + num_stars] = stars[i].position - 1;
+			}
+			int nroots_extra = num_roots - 2 * num_stars;
+			for (int i = 0; i < nroots_extra; i++)
+			{
+				ccs_init[center + 2 * num_stars + i] = corner.abs() *
+					Complex<T>(std::cos(2 * std::numbers::pi_v<T> / nroots_extra * i), 
+								std::sin(2 * std::numbers::pi_v<T> / nroots_extra * i));
+			}
+		}
+		print_verbose("Done initializing root positions.\n\n", verbose, 3);
+
 		/******************************************************************************
 		number of iterations to use for root finding
 		empirically, 30 seems to be roughly the amount needed
