@@ -58,35 +58,11 @@ private:
 	/******************************************************************************
 	derived variables
 	******************************************************************************/
-	std::shared_ptr<massfunctions::MassFunction<T>> mass_function;
-	T mean_mass;
-	T mean_mass2;
-	T mean_mass2_ln_mass;
-
-	T kappa_star_actual;
-	T m_lower_actual;
-	T m_upper_actual;
-	T mean_mass_actual;
-	T mean_mass2_actual;
-	T mean_mass2_ln_mass_actual;
-
-	T mu_ave;
 	T num_rays_x; //number density of rays per unit area in the image plane
 	Complex<T> ray_half_sep; //distance from center of cell to corner
 	Complex<T> center_x;
 	Complex<T> half_length_x;
-	Complex<int> num_ray_threads; //number of threads in x1 and x2 directions 
-	Complex<T> corner;
-	int taylor_smooth;
-
-	T alpha_error; //error in the deflection angle
-
-	int expansion_order;
-
-	T root_half_length;
-	int tree_levels;
-	std::vector<TreeNode<T>*> tree; //members of the tree will need their memory freed
-	std::vector<int> num_nodes;
+	Complex<int> num_ray_threads; //number of threads in x1 and x2 directions
 
 	/******************************************************************************
 	dynamic memory

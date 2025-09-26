@@ -1,8 +1,13 @@
 #pragma once
 
+#include "complex.cuh"
+#include "mass_functions/mass_function_base.cuh" //for massfunctions::MassFunction<T>
 #include "stopwatch.hpp"
+#include "tree_node.cuh"
 
+#include <memory> //for std::shared_ptr
 #include <string>
+#include <vector>
 
 
 template <typename T>
@@ -42,7 +47,8 @@ protected:
 	constant variables
 	******************************************************************************/
 	const std::string outfile_type = ".bin";
-	const int MAX_TAYLOR_SMOOTH = 101; //arbitrary limit to the expansion order to avoid numerical precision loss from high degree polynomials
+	//arbitrary limit to the expansion order to avoid numerical precision loss from high degree polynomials
+	const int MAX_TAYLOR_SMOOTH = 101;
 
 	/******************************************************************************
 	variables for cuda device, kernel threads, and kernel blocks
@@ -56,6 +62,34 @@ protected:
 	******************************************************************************/
 	Stopwatch stopwatch;
 	double t_elapsed;
+
+	/******************************************************************************
+	derived variables
+	******************************************************************************/
+	std::shared_ptr<massfunctions::MassFunction<T>> mass_function;
+	T mean_mass; //<m>
+	T mean_mass2; //<m^2>
+	T mean_mass2_ln_mass; //<m^2 * ln(m)>
+
+	T kappa_star_actual;
+	T m_lower_actual;
+	T m_upper_actual;
+	T mean_mass_actual;
+	T mean_mass2_actual;
+	T mean_mass2_ln_mass_actual;
+
+	T mu_ave;
+	Complex<T> corner;
+	int taylor_smooth;
+
+	T alpha_error; //error in the deflection angle
+
+	int expansion_order;
+
+	T root_half_length;
+	int tree_levels;
+	std::vector<TreeNode<T>*> tree; //members of the tree will need their memory freed
+	std::vector<int> num_nodes;
 
 
 public:

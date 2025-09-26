@@ -56,31 +56,6 @@ private:
 	/******************************************************************************
 	derived variables
 	******************************************************************************/
-	std::shared_ptr<massfunctions::MassFunction<T>> mass_function;
-	T mean_mass;
-	T mean_mass2;
-	T mean_mass2_ln_mass;
-
-	T kappa_star_actual;
-	T m_lower_actual;
-	T m_upper_actual;
-	T mean_mass_actual;
-	T mean_mass2_actual;
-	T mean_mass2_ln_mass_actual;
-
-	T mu_ave;
-	Complex<T> corner;
-	int taylor_smooth;
-
-	T alpha_error; //error in the deflection angle
-
-	int expansion_order;
-
-	T root_half_length;
-	int tree_levels;
-	std::vector<TreeNode<T>*> tree; //members of the tree will need their memory freed
-	std::vector<int> num_nodes;
-
 	int num_roots;
 	T max_error;
 
