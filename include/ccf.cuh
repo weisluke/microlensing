@@ -121,30 +121,6 @@ private:
 
 		if (!Microlensing::check_input_params(0)) return false;
 
-		if (starfile == "" && rectangular != 0 && rectangular != 1)
-		{
-			std::cerr << "Error. rectangular must be 1 (rectangular) or 0 (circular).\n";
-			return false;
-		}
-
-		if (approx != 0 && approx != 1)
-		{
-			std::cerr << "Error. approx must be 1 (approximate) or 0 (exact).\n";
-			return false;
-		}
-
-		/******************************************************************************
-		if the alpha_smooth comes from a rectangular mass sheet, finding the caustics
-		requires a Taylor series approximation to alpha_smooth. a bound on the error of
-		that series necessitates having some minimum cutoff here for the ratio of the
-		size of the star field to the radius of convergence for alpha_smooth
-		******************************************************************************/
-		if (safety_scale < 1.1)
-		{
-			std::cerr << "Error. safety_scale must be >= 1.1\n";
-			return false;
-		}
-		
 		if (num_stars < 1)
 		{
 			std::cerr << "Error. num_stars must be an integer > 0\n";
@@ -169,12 +145,6 @@ private:
 			return false;
 		}
 
-		if (write_stars != 0 && write_stars != 1)
-		{
-			std::cerr << "Error. write_stars must be 1 (true) or 0 (false).\n";
-			return false;
-		}
-
 		if (write_critical_curves != 0 && write_critical_curves != 1)
 		{
 			std::cerr << "Error. write_critical_curves must be 1 (true) or 0 (false).\n";
@@ -193,9 +163,7 @@ private:
 			return false;
 		}
 
-
 		print_verbose("Done checking input parameters.\n\n", verbose, 3);
-		
 		return true;
 	}
 	
