@@ -82,7 +82,6 @@ private:
 	T mean_mass2;
 	T mean_mass2_ln_mass;
 
-	int num_stars;
 	T kappa_star_actual;
 	T m_lower_actual;
 	T m_upper_actual;

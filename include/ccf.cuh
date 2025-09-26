@@ -41,7 +41,7 @@ public:
 	/******************************************************************************
 	default input variables
 	******************************************************************************/
-	int num_stars = 137;
+	using Microlensing::num_stars; //make num_stars public
 	int num_phi = 100;
 	int num_branches = 1;
 	int write_critical_curves = 1;
