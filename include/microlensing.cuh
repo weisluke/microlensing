@@ -2,6 +2,7 @@
 
 #include "complex.cuh"
 #include "mass_functions/mass_function_base.cuh" //for massfunctions::MassFunction<T>
+#include "star.cuh"
 #include "stopwatch.hpp"
 #include "tree_node.cuh"
 
@@ -90,6 +91,15 @@ protected:
 	int tree_levels;
 	std::vector<TreeNode<T>*> tree; //members of the tree will need their memory freed
 	std::vector<int> num_nodes;
+
+	/******************************************************************************
+	dynamic memory
+	******************************************************************************/
+	curandState* states = nullptr;
+	star<T>* stars = nullptr;
+	star<T>* temp_stars = nullptr;
+
+	int* binomial_coeffs = nullptr;
 
 
 public:

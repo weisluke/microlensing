@@ -62,12 +62,6 @@ private:
 	/******************************************************************************
 	dynamic memory
 	******************************************************************************/
-	curandState* states = nullptr;
-	star<T>* stars = nullptr;
-	star<T>* temp_stars = nullptr;
-
-	int* binomial_coeffs = nullptr;
-
 	Complex<T>* ccs_init = nullptr;
 	Complex<T>* ccs = nullptr;
 	bool* fin = nullptr;

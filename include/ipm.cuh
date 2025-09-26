@@ -67,12 +67,6 @@ private:
 	/******************************************************************************
 	dynamic memory
 	******************************************************************************/
-	curandState* states = nullptr;
-	star<T>* stars = nullptr;
-	star<T>* temp_stars = nullptr;
-
-	int* binomial_coeffs = nullptr;
-
 	T* pixels = nullptr;
 	T* pixels_minima = nullptr;
 	T* pixels_saddles = nullptr;
