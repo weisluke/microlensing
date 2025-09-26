@@ -148,6 +148,42 @@ protected:
 		return true;
 	}
 
+    //optional return or not, so memory can be cleared in destructor without error checking
+	bool clear_memory(int verbose, bool return_on_error = true)
+	{
+		print_verbose("Clearing memory...\n", verbose, 3);
+		
+		/******************************************************************************
+		free memory and set variables to nullptr
+		******************************************************************************/
+
+		cudaFree(states);
+		if (return_on_error && cuda_error("cudaFree(*states)", false, __FILE__, __LINE__)) return false;
+		states = nullptr;
+		
+		cudaFree(stars);
+		if (return_on_error && cuda_error("cudaFree(*stars)", false, __FILE__, __LINE__)) return false;
+		stars = nullptr;
+		
+		cudaFree(temp_stars);
+		if (return_on_error && cuda_error("cudaFree(*temp_stars)", false, __FILE__, __LINE__)) return false;
+		temp_stars = nullptr;
+		
+		cudaFree(binomial_coeffs);
+		if (return_on_error && cuda_error("cudaFree(*binomial_coeffs)", false, __FILE__, __LINE__)) return false;
+		binomial_coeffs = nullptr;
+
+		for	(int i = 0; i < tree.size(); i++) //for every level in the tree, free the memory for the nodes
+		{
+			cudaFree(tree[i]);
+			if (return_on_error && cuda_error("cudaFree(*tree[i])", false, __FILE__, __LINE__)) return false;
+			tree[i] = nullptr;
+		}
+
+		print_verbose("Done clearing memory.\n\n", verbose, 3);
+		return true;
+	}
+
 
 public:
 
