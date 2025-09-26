@@ -1,14 +1,28 @@
 #pragma once
 
+#include "binomial_coefficients.cuh"
 #include "complex.cuh"
+#include "fmm.cuh"
 #include "mass_functions.cuh"
+#include "mass_functions/equal.cuh"
+#include "mass_functions/kroupa.cuh"
 #include "mass_functions/mass_function_base.cuh" //for massfunctions::MassFunction<T>
+#include "mass_functions/salpeter.cuh"
+#include "mass_functions/uniform.cuh"
 #include "star.cuh"
 #include "stopwatch.hpp"
 #include "tree_node.cuh"
+#include "util/util.cuh"
 
+#include <curand_kernel.h>
+
+#include <algorithm> //for std::min and std::max
+#include <chrono> //for setting random seed with clock
+#include <cmath>
+#include <iostream>
 #include <limits> //for std::numeric_limits
 #include <memory> //for std::shared_ptr
+#include <numbers>
 #include <string>
 #include <vector>
 
@@ -724,5 +738,9 @@ public:
 
 		return *this;
 	}
+
+	int get_num_stars()			{return num_stars;}
+	Complex<T> get_corner()		{if (rectangular) {return corner;} else {return Complex<T>(corner.abs(), 0);}}
+	star<T>* get_stars()		{return stars;}
 
 };

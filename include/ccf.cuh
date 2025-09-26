@@ -1,18 +1,10 @@
 #pragma once
 
 #include "array_functions.cuh"
-#include "binomial_coefficients.cuh"
 #include "complex.cuh"
 #include "ccf_functions.cuh"
-#include "fmm.cuh"
-#include "mass_functions.cuh"
-#include "mass_functions/equal.cuh"
-#include "mass_functions/kroupa.cuh"
-#include "mass_functions/salpeter.cuh"
-#include "mass_functions/uniform.cuh"
 #include "microlensing.cuh"
 #include "star.cuh"
-#include "tree_node.cuh"
 #include "util/util.cuh"
 
 #include <curand_kernel.h>
@@ -20,16 +12,11 @@
 #include <thrust/extrema.h> //for thrust::max_element
 #include <thrust/fill.h> //for thrust::fill
 
-#include <algorithm> //for std::min and std::max
-#include <chrono> //for setting random seed with clock
 #include <cmath>
 #include <fstream> //for writing files
 #include <iostream>
-#include <limits> //for std::numeric_limits
-#include <memory> //for std::shared_ptr
 #include <numbers>
 #include <string>
-#include <vector>
 
 
 template <typename T>
