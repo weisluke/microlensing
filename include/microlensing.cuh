@@ -272,6 +272,81 @@ protected:
 		return true;
 	}
 
+	bool calculate_derived_params(int verbose)
+	{
+		print_verbose("Calculating derived parameters...\n", verbose, 3);
+		stopwatch.start();
+
+		/******************************************************************************
+		average magnification of the system
+		******************************************************************************/
+		set_param("mu_ave", mu_ave, 1 / ((1 - kappa_tot) * (1 - kappa_tot) - shear * shear), verbose);
+
+		/******************************************************************************
+		if star file is not specified, set the mass function, mean_mass, mean_mass2,
+		and mean_mass2_ln_mass
+		******************************************************************************/
+		if (starfile == "")
+		{
+			if (mass_function_str == "equal")
+			{
+				set_param("m_lower", m_lower, 1, verbose);
+				set_param("m_upper", m_upper, 1, verbose);
+			}
+			else
+			{
+				set_param("m_lower", m_lower, m_lower * m_solar, verbose);
+				set_param("m_upper", m_upper, m_upper * m_solar, verbose);
+			}
+
+			/******************************************************************************
+			determine mass function, <m>, <m^2>, and <m^2 * ln(m)>
+			******************************************************************************/
+			mass_function = massfunctions::MASS_FUNCTIONS<T>.at(mass_function_str);
+			set_param("mean_mass", mean_mass, mass_function->mean_mass(m_lower, m_upper, m_solar), verbose);
+			set_param("mean_mass2", mean_mass2, mass_function->mean_mass2(m_lower, m_upper, m_solar), verbose);
+			set_param("mean_mass2_ln_mass", mean_mass2_ln_mass, mass_function->mean_mass2_ln_mass(m_lower, m_upper, m_solar), verbose);
+		}
+		/******************************************************************************
+		if star file is specified, check validity of values and set num_stars,
+		rectangular, corner, theta_star, stars, kappa_star, m_lower, m_upper,
+		mean_mass, mean_mass2, and mean_mass2_ln_mass based on star information
+		******************************************************************************/
+		else
+		{
+			print_verbose("Calculating some parameter values based on star input file " << starfile << "\n", verbose, 3);
+
+			if (!read_star_file<T>(num_stars, rectangular, corner, theta_star, stars,
+				kappa_star, m_lower, m_upper, mean_mass, mean_mass2, mean_mass2_ln_mass, starfile))
+			{
+				std::cerr << "Error. Unable to read star field parameters from file " << starfile << "\n";
+				return false;
+			}
+
+			set_param("num_stars", num_stars, num_stars, verbose);
+			set_param("rectangular", rectangular, rectangular, verbose);
+			set_param("corner", corner, corner, verbose);
+			set_param("theta_star", theta_star, theta_star, verbose);
+			set_param("kappa_star", kappa_star, kappa_star, verbose);
+			if (kappa_star > kappa_tot)
+			{
+				std::cerr << "Warning. kappa_star > kappa_tot\n";
+			}
+			set_param("m_lower", m_lower, m_lower, verbose);
+			set_param("m_upper", m_upper, m_upper, verbose);
+			set_param("mean_mass", mean_mass, mean_mass, verbose);
+			set_param("mean_mass2", mean_mass2, mean_mass2, verbose);
+			set_param("mean_mass2_ln_mass", mean_mass2_ln_mass, mean_mass2_ln_mass, verbose);
+
+			print_verbose("Done calculating some parameter values based on star input file " << starfile << "\n", verbose, 3);
+		}
+
+		t_elapsed = stopwatch.stop();
+		print_verbose("Done calculating derived parameters. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
+
+		return true;
+	}
+
 
 public:
 
