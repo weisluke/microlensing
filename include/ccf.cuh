@@ -41,19 +41,7 @@ public:
 	/******************************************************************************
 	default input variables
 	******************************************************************************/
-	T kappa_tot = static_cast<T>(0.3);
-	T shear = static_cast<T>(0.3);
-	T kappa_star = static_cast<T>(0.27);
-	T theta_star = static_cast<T>(1);
-	std::string mass_function_str = "equal";
-	T m_solar = static_cast<T>(1);
-	T m_lower = static_cast<T>(0.01);
-	T m_upper = static_cast<T>(50);
-	int rectangular = 0; //whether star field is rectangular or circular
-	int approx = 1; //whether terms for alpha_smooth are exact or approximate
-	T safety_scale = static_cast<T>(1.37); //ratio of the size of the star field to the radius of convergence for alpha_smooth
 	int num_stars = 137;
-	std::string starfile = "";
 	int num_phi = 100;
 	int num_branches = 1;
 	int write_critical_curves = 1;

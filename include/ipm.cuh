@@ -43,19 +43,7 @@ public:
 	/******************************************************************************
 	default input variables
 	******************************************************************************/
-	T kappa_tot = static_cast<T>(0.3);
-	T shear = static_cast<T>(0.3);
-	T kappa_star = static_cast<T>(0.27);
-	T theta_star = static_cast<T>(1);
-	std::string mass_function_str = "equal";
-	T m_solar = static_cast<T>(1);
-	T m_lower = static_cast<T>(0.01);
-	T m_upper = static_cast<T>(50);
 	T light_loss = static_cast<T>(0.001); //average fraction of light lost due to scatter by the microlenses in the large deflection angle limit
-	int rectangular = 0; //whether star field is rectangular or circular
-	int approx = 1; //whether terms for alpha_smooth are exact or approximate
-	T safety_scale = static_cast<T>(1.37); //ratio of the size of the star field to the size of the shooting region
-	std::string starfile = "";
 	Complex<T> center_y = Complex<T>();
 	Complex<T> half_length_y = Complex<T>(5, 5);
 	Complex<int> num_pixels_y = Complex<int>(1000, 1000);
