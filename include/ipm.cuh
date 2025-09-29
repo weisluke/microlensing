@@ -24,7 +24,7 @@
 
 
 template <typename T>
-class IPM : public Microlensing
+class IPM : public Microlensing<T>
 {
 
 public:

@@ -20,7 +20,7 @@
 
 
 template <typename T>
-class CCF : public Microlensing
+class CCF : public Microlensing<T>
 {
 
 public:
