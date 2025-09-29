@@ -27,7 +27,24 @@ public:
 	/******************************************************************************
 	default input variables
 	******************************************************************************/
-	using Microlensing::num_stars; //make num_stars public
+	//must include microlensing variables to put them into scope since class is a template
+	using Microlensing<T>::kappa_tot;
+	using Microlensing<T>::shear;
+	using Microlensing<T>::kappa_star;
+	using Microlensing<T>::theta_star;
+	using Microlensing<T>::mass_function_str;
+	using Microlensing<T>::m_solar;
+	using Microlensing<T>::m_lower;
+	using Microlensing<T>::m_upper;
+	using Microlensing<T>::rectangular;
+	using Microlensing<T>::approx;
+	using Microlensing<T>::safety_scale;
+	using Microlensing<T>::starfile;
+	using Microlensing<T>::random_seed;
+	using Microlensing<T>::write_stars;
+	using Microlensing<T>::outfile_prefix;
+
+	using Microlensing<T>::num_stars; //make num_stars public
 	int num_phi = 100;
 	int num_branches = 1;
 	int write_critical_curves = 1;
@@ -36,6 +53,30 @@ public:
 
 
 private:
+	//must include microlensing variables to put them into scope since class is a template
+	using Microlensing<T>::outfile_type;
+	using Microlensing<T>::MAX_TAYLOR_SMOOTH;
+	using Microlensing<T>::threads;
+	using Microlensing<T>::blocks;
+	using Microlensing<T>::stopwatch;
+	using Microlensing<T>::t_elapsed;
+	using Microlensing<T>::mean_mass;
+	using Microlensing<T>::mean_mass2;
+	using Microlensing<T>::mean_mass2_ln_mass;
+	using Microlensing<T>::kappa_star_actual;
+	using Microlensing<T>::m_lower_actual;
+	using Microlensing<T>::m_upper_actual;
+	using Microlensing<T>::mean_mass_actual;
+	using Microlensing<T>::mean_mass2_actual;
+	using Microlensing<T>::mean_mass2_ln_mass_actual;
+	using Microlensing<T>::mu_ave;
+	using Microlensing<T>::corner;
+	using Microlensing<T>::taylor_smooth;
+	using Microlensing<T>::alpha_error;
+	using Microlensing<T>::tree;
+	using Microlensing<T>::stars;
+
+	//to store how long locating the critical curves and caustics took
 	double t_init_roots;
 	double t_ccs;
 	double t_caustics;
@@ -68,7 +109,7 @@ private:
 		free memory and set variables to nullptr
 		******************************************************************************/
 
-		if (!Microlensing::clear_memory(0, return_on_error)) return false;
+		if (!Microlensing<T>::clear_memory(0, return_on_error)) return false;
 
 		cudaFree(ccs_init);
 		if (return_on_error && cuda_error("cudaFree(*ccs_init)", false, __FILE__, __LINE__)) return false;
@@ -106,7 +147,7 @@ private:
 	{
 		print_verbose("Checking input parameters...\n", verbose, 3);
 
-		if (!Microlensing::check_input_params(0)) return false;
+		if (!Microlensing<T>::check_input_params(0)) return false;
 
 		if (num_stars < 1)
 		{
@@ -159,7 +200,7 @@ private:
 		print_verbose("Calculating derived parameters...\n", verbose, 3);
 		stopwatch.start();
 
-		if (!Microlensing::calculate_derived_params(0)) return false;
+		if (!Microlensing<T>::calculate_derived_params(0)) return false;
 
 		/******************************************************************************
 		if stars are not drawn from external file, calculate corner of the star field
@@ -248,7 +289,7 @@ private:
 		print_verbose("Allocating memory...\n", verbose, 3);
 		stopwatch.start();
 		
-		if (!Microlensing::allocate_initialize_memory(0)) return false;
+		if (!Microlensing<T>::allocate_initialize_memory(0)) return false;
 
 		/******************************************************************************
 		allocate memory for array of critical curve positions
@@ -715,7 +756,7 @@ public:
 	/******************************************************************************
 	copy constructor sets this object's dynamic memory pointers to null
 	******************************************************************************/
-	CCF(const CCF& other) : Microlensing(other)
+	CCF(const CCF& other) : Microlensing<T>(other)
 	{
 		ccs_init = nullptr;
 		ccs = nullptr;
@@ -733,7 +774,7 @@ public:
 	{
         if (this == &other) return *this;
 
-		Microlensing::operator=(other);
+		Microlensing<T>::operator=(other);
 
 		ccs_init = nullptr;
 		ccs = nullptr;
@@ -748,13 +789,13 @@ public:
 
 	bool run(int verbose)
 	{
-		if (!set_cuda_devices(verbose)) return false;
+		if (!Microlensing<T>::set_cuda_devices(verbose)) return false;
 		if (!clear_memory(verbose)) return false;
 		if (!check_input_params(verbose)) return false;
 		if (!calculate_derived_params(verbose)) return false;
 		if (!allocate_initialize_memory(verbose)) return false;
-		if (!populate_star_array(verbose)) return false;
-		if (!create_tree(verbose)) return false;
+		if (!Microlensing<T>::populate_star_array(verbose)) return false;
+		if (!Microlensing<T>::create_tree(verbose)) return false;
 		if (!find_initial_roots(verbose)) return false;
 		if (!find_ccs(verbose)) return false;
 		if (!find_caustics(verbose)) return false;
