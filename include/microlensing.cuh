@@ -139,7 +139,7 @@ protected:
 
 		if (verbose >= 3)
 		{
-			std::cout << "Available CUDA capable devices:\n\n";
+			std::cout << "Available CUDA capable devices:\n";
 
 			for (int i = 0; i < n_devices; i++)
 			{
@@ -153,21 +153,21 @@ protected:
 
 		if (n_devices > 1)
 		{
-			print_verbose("More than one CUDA capable device detected. Defaulting to first device.\n\n", verbose, 2);
+			print_verbose("More than one CUDA capable device detected. Defaulting to first device.\n", verbose, 2);
 		}
 		cudaSetDevice(0);
 		if (cuda_error("cudaSetDevice", false, __FILE__, __LINE__)) return false;
 		cudaGetDeviceProperties(&cuda_device_prop, 0);
 		if (cuda_error("cudaGetDeviceProperties", false, __FILE__, __LINE__)) return false;
 
-		print_verbose("Done setting device.\n\n", verbose, 3);
+		print_verbose("Done setting device.\n", verbose, 3);
 		return true;
 	}
 
     //optional return or not, so memory can be cleared in destructor without error checking
 	bool clear_memory(int verbose, bool return_on_error = true)
 	{
-		print_verbose("Clearing memory...\n", verbose, 3);
+		print_verbose("Clearing Microlensing<T> memory...\n", verbose, 3);
 		
 		/******************************************************************************
 		free memory and set variables to nullptr
@@ -196,13 +196,13 @@ protected:
 			tree[i] = nullptr;
 		}
 
-		print_verbose("Done clearing memory.\n\n", verbose, 3);
+		print_verbose("Done clearing Microlensing<T> memory.\n", verbose, 3);
 		return true;
 	}
 
 	bool check_input_params(int verbose)
 	{
-		print_verbose("Checking input parameters...\n", verbose, 3);
+		print_verbose("Checking Microlensing<T> input parameters...\n", verbose, 3);
 
 		if (kappa_tot < std::numeric_limits<T>::min())
 		{
@@ -282,13 +282,13 @@ protected:
 			return false;
 		}
 
-		print_verbose("Done checking input parameters.\n\n", verbose, 3);
+		print_verbose("Done checking Microlensing<T> input parameters.\n", verbose, 3);
 		return true;
 	}
 
 	bool calculate_derived_params(int verbose)
 	{
-		print_verbose("Calculating derived parameters...\n", verbose, 3);
+		print_verbose("Calculating Microlensing<T> derived parameters...\n", verbose, 3);
 		stopwatch.start();
 
 		/******************************************************************************
@@ -356,14 +356,14 @@ protected:
 		}
 
 		t_elapsed = stopwatch.stop();
-		print_verbose("Done calculating derived parameters. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
+		print_verbose("Done calculating Microlensing<T> derived parameters. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 3);
 
 		return true;
 	}
 
 	bool allocate_initialize_memory(int verbose)
 	{
-		print_verbose("Allocating memory...\n", verbose, 3);
+		print_verbose("Allocating Microlensing<T> memory...\n", verbose, 3);
 		stopwatch.start();
 
 		/******************************************************************************
@@ -386,7 +386,7 @@ protected:
 		if (cuda_error("cudaMallocManaged(*binomial_coeffs)", false, __FILE__, __LINE__)) return false;
 
 		t_elapsed = stopwatch.stop();
-		print_verbose("Done allocating memory. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
+		print_verbose("Done allocating Microlensing<T> memory. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 3);
 
 		return true;
 	}
@@ -451,7 +451,7 @@ protected:
 			if (cuda_error("generate_star_field_kernel", true, __FILE__, __LINE__)) return false;
 
 			t_elapsed = stopwatch.stop();
-			print_verbose("Done generating star field. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 1);
+			print_verbose("Done generating star field. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 1);
 		}
 		else
 		{
@@ -481,13 +481,13 @@ protected:
 			{
 				corner = Complex<T>(std::sqrt(corner.re / corner.im), std::sqrt(corner.im / corner.re));
 				corner *= std::sqrt(std::numbers::pi_v<T> * theta_star * theta_star * num_stars * mean_mass_actual / (4 * kappa_star));
-				set_param("corner", corner, corner, verbose, true);
+				set_param("corner", corner, corner, verbose);
 			}
 			else
 			{
 				corner = corner / corner.abs();
 				corner *= std::sqrt(theta_star * theta_star * num_stars * mean_mass_actual / kappa_star);
-				set_param("corner", corner, corner, verbose, true);
+				set_param("corner", corner, corner, verbose);
 			}
 		}
 
@@ -512,7 +512,7 @@ protected:
 		{
 			root_half_length = corner.abs();
 		}
-		set_param("root_half_length", root_half_length, root_half_length * 1.1, verbose, true); //slight buffer for containing all the stars
+		set_param("root_half_length", root_half_length, root_half_length * 1.1, verbose); //slight buffer for containing all the stars
 
 		//initialize variables
 		tree_levels = 0;
@@ -597,7 +597,7 @@ protected:
 			}
 		} while (*max_num_stars_in_level > treenode::MAX_NUM_STARS_DIRECT);
 		print_verbose("\n", verbose, 3);
-		set_param("tree_levels", tree_levels, tree_levels, verbose, verbose > 2);
+		set_param("tree_levels", tree_levels, tree_levels, verbose);
 
 
 		cudaFree(max_num_stars_in_level);
@@ -614,7 +614,7 @@ protected:
 
 
 		t_elapsed = stopwatch.stop();
-		print_verbose("Done creating children and sorting stars. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 1);
+		print_verbose("Done creating children and sorting stars. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 1);
 
 		/******************************************************************************
 		END create root node, then create children and sort stars
@@ -624,7 +624,7 @@ protected:
 									+ std::log2(mean_mass2) - std::log2(mean_mass)
 									+ tree_levels
 									- std::log2(root_half_length) - std::log2(alpha_error));
-		set_param("expansion_order", expansion_order, expansion_order, verbose, true);
+		set_param("expansion_order", expansion_order, expansion_order, verbose);
 		if (expansion_order < 3)
 		{
 			std::cerr << "Error. Expansion order needs to be >= 3\n";
@@ -638,7 +638,7 @@ protected:
 
 		print_verbose("Calculating binomial coefficients...\n", verbose, 3);
 		calculate_binomial_coeffs(binomial_coeffs, 2 * expansion_order);
-		print_verbose("Done calculating binomial coefficients.\n\n", verbose, 3);
+		print_verbose("Done calculating binomial coefficients.\n", verbose, 3);
 
 
 		/******************************************************************************
@@ -679,7 +679,7 @@ protected:
 		if (cuda_error("calculate_coeffs_kernels", true, __FILE__, __LINE__)) return false;
 
 		t_elapsed = stopwatch.stop();
-		print_verbose("Done calculating multipole and local coefficients. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 1);
+		print_verbose("Done calculating multipole and local coefficients. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 1);
 
 		/******************************************************************************
 		END calculating multipole and local coefficients

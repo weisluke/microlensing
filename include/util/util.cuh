@@ -96,17 +96,12 @@ function to set a parameter value and print message if necessary
 \param param -- reference to the parameter
 \param what -- value to set the parameter equal to
 \param verbose -- verbose level
-\param newline -- whether to add an extra newline to the end or not
 ******************************************************************************/
 template <typename T, typename U>
-void set_param(const std::string& name, T& param, U what, int verbose, bool newline = false)
+void set_param(const std::string& name, T& param, U what, int verbose)
 {
 	param = static_cast<T>(what);
 	print_verbose(name << " set to: " << param << "\n", verbose, 2);
-	if (newline) 
-	{
-		print_verbose("\n", verbose, 2);
-	}
 }
 
 /******************************************************************************
@@ -300,6 +295,6 @@ void show_device_info(int num, cudaDeviceProp& prop)
 	std::cout << "  Maximum (x, y, z) dimensions of grid: ("
 		<< prop.maxGridSize[0] << ", "
 		<< prop.maxGridSize[1] << ", "
-		<< prop.maxGridSize[2] << ")\n\n";
+		<< prop.maxGridSize[2] << ")\n";
 }
 

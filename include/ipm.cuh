@@ -124,7 +124,7 @@ private:
 	//optional return or not, so memory can be cleared in destructor without error checking
 	bool clear_memory(int verbose, bool return_on_error = true)
 	{
-		print_verbose("Clearing memory...\n", verbose, 3);
+		print_verbose("Clearing IPM<T> memory...\n", verbose, 3);
 		
 		/******************************************************************************
 		free memory and set variables to nullptr
@@ -168,13 +168,13 @@ private:
 		if (return_on_error && cuda_error("cudaFree(*log_histogram_saddles)", false, __FILE__, __LINE__)) return false;
 		log_histogram_saddles = nullptr;
 
-		print_verbose("Done clearing memory.\n\n", verbose, 3);
+		print_verbose("Done IPM<T> clearing memory.\n", verbose, 3);
 		return true;
 	}
 
 	bool check_input_params(int verbose)
 	{
-		print_verbose("Checking input parameters...\n", verbose, 3);
+		print_verbose("Checking IPM<T> input parameters...\n", verbose, 3);
 
 		if (!Microlensing<T>::check_input_params(0)) return false;
 
@@ -225,13 +225,13 @@ private:
 			return false;
 		}
 
-		print_verbose("Done checking input parameters.\n\n", verbose, 3);
+		print_verbose("Done checking IPM<T> input parameters.\n", verbose, 3);
 		return true;
 	}
 
 	bool calculate_derived_params(int verbose)
 	{
-		print_verbose("Calculating derived parameters...\n", verbose, 3);
+		print_verbose("Calculating IPM<T> derived parameters...\n", verbose, 3);
 		stopwatch.start();
 
 		if (!Microlensing<T>::calculate_derived_params(0)) return false;
@@ -359,14 +359,14 @@ private:
 		}
 
 		t_elapsed = stopwatch.stop();
-		print_verbose("Done calculating derived parameters. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
+		print_verbose("Done calculating IPM<T> derived parameters. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 3);
 
 		return true;
 	}
 
 	bool allocate_initialize_memory(int verbose)
 	{
-		print_verbose("Allocating memory...\n", verbose, 3);
+		print_verbose("Allocating IPM<T> memory...\n", verbose, 3);
 		stopwatch.start();
 		
 		if (!Microlensing<T>::allocate_initialize_memory(0)) return false;
@@ -385,7 +385,7 @@ private:
 		}
 
 		t_elapsed = stopwatch.stop();
-		print_verbose("Done allocating memory. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
+		print_verbose("Done allocating IPM<T> memory. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 3);
 
 
 		/******************************************************************************
@@ -402,7 +402,7 @@ private:
 		}
 
 		t_elapsed = stopwatch.stop();
-		print_verbose("Done initializing array values. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
+		print_verbose("Done initializing array values. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 3);
 
 		return true;
 	}
@@ -428,7 +428,7 @@ private:
 			center_y, half_length_y, pixels_minima, pixels_saddles, pixels, num_pixels_y, percentage, verbose);
 		if (cuda_error("shoot_rays_kernel", true, __FILE__, __LINE__)) return false;
 		t_shoot_cells = stopwatch.stop();
-		print_verbose("\nDone shooting cells. Elapsed time: " << t_shoot_cells << " seconds.\n\n", verbose, 1);
+		print_verbose("\nDone shooting cells. Elapsed time: " << t_shoot_cells << " seconds.\n", verbose, 1);
 
 
 		cudaFree(percentage);
@@ -444,7 +444,7 @@ private:
 							  pixels_saddles, 
 							  pixels, 
 							  thrust::plus<T>());
-			print_verbose("Done adding arrays.\n\n", verbose, 2);
+			print_verbose("Done adding arrays.\n", verbose, 2);
 		}
 
 		return true;
@@ -600,7 +600,7 @@ private:
 
 
 			t_elapsed = stopwatch.stop();
-			print_verbose("Done creating histograms. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 2);
+			print_verbose("Done creating histograms. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 2);
 		}
 
 		/******************************************************************************

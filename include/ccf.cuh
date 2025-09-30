@@ -103,7 +103,7 @@ private:
 	//optional return or not, so memory can be cleared in destructor without error checking
 	bool clear_memory(int verbose, bool return_on_error = true)
 	{
-		print_verbose("Clearing memory...\n", verbose, 3);
+		print_verbose("Clearing CCF<T> memory...\n", verbose, 3);
 		
 		/******************************************************************************
 		free memory and set variables to nullptr
@@ -139,13 +139,13 @@ private:
 		if (return_on_error && cuda_error("cudaFree(*mu_length_scales)", false, __FILE__, __LINE__)) return false;
 		mu_length_scales = nullptr;
 
-		print_verbose("Done clearing memory.\n\n", verbose, 3);
+		print_verbose("Done clearing CCF<T> memory.\n", verbose, 3);
 		return true;
 	}
 
 	bool check_input_params(int verbose)
 	{
-		print_verbose("Checking input parameters...\n", verbose, 3);
+		print_verbose("Checking CCF<T> input parameters...\n", verbose, 3);
 
 		if (!Microlensing<T>::check_input_params(0)) return false;
 
@@ -191,13 +191,13 @@ private:
 			return false;
 		}
 
-		print_verbose("Done checking input parameters.\n\n", verbose, 3);
+		print_verbose("Done checking CCF<T> input parameters.\n", verbose, 3);
 		return true;
 	}
 	
 	bool calculate_derived_params(int verbose)
 	{
-		print_verbose("Calculating derived parameters...\n", verbose, 3);
+		print_verbose("Calculating CCF<T> derived parameters...\n", verbose, 3);
 		stopwatch.start();
 
 		if (!Microlensing<T>::calculate_derived_params(0)) return false;
@@ -279,14 +279,14 @@ private:
 		}
 
 		t_elapsed = stopwatch.stop();
-		print_verbose("Done calculating derived parameters. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
+		print_verbose("Done calculating CCF<T> derived parameters. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 3);
 
 		return true;
 	}
 
 	bool allocate_initialize_memory(int verbose)
 	{
-		print_verbose("Allocating memory...\n", verbose, 3);
+		print_verbose("Allocating CCF<T> memory...\n", verbose, 3);
 		stopwatch.start();
 		
 		if (!Microlensing<T>::allocate_initialize_memory(0)) return false;
@@ -338,7 +338,7 @@ private:
 		}
 
 		t_elapsed = stopwatch.stop();
-		print_verbose("Done allocating memory. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
+		print_verbose("Done allocating CCF<T> memory. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 3);
 
 
 		/******************************************************************************
@@ -354,7 +354,7 @@ private:
 		thrust::fill(thrust::device, errs, errs + (num_phi + num_branches) * num_roots, 0);
 
 		t_elapsed = stopwatch.stop();
-		print_verbose("Done initializing array values. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
+		print_verbose("Done initializing array values. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 3);
 
 		return true;
 	}
@@ -381,7 +381,7 @@ private:
 								std::sin(2 * std::numbers::pi_v<T> / nroots_extra * i));
 			}
 		}
-		print_verbose("Done initializing root positions.\n\n", verbose, 3);
+		print_verbose("Done initializing root positions.\n", verbose, 3);
 
 		/******************************************************************************
 		number of iterations to use for root finding
@@ -448,7 +448,7 @@ private:
 		find max error and print
 		******************************************************************************/
 		max_error = *thrust::max_element(thrust::device, errs, errs + (num_phi + num_branches) * num_roots);
-		print_verbose("Maximum error in 1/mu: " << max_error << "\n\n", verbose, 1);
+		print_verbose("Maximum error in 1/mu: " << max_error << "\n", verbose, 1);
 
 
 		return true;
@@ -544,7 +544,7 @@ private:
 		}
 
 		max_error = *thrust::max_element(thrust::device, errs, errs + (num_phi + num_branches) * num_roots);
-		print_verbose("Maximum error in 1/mu: " << max_error << "\n\n", verbose, 1);
+		print_verbose("Maximum error in 1/mu: " << max_error << "\n", verbose, 1);
 
 
 		set_threads(threads, 512);
@@ -555,7 +555,7 @@ private:
 		transpose_array_kernel<Complex<T>> <<<blocks, threads>>> (ccs_init, (num_phi + num_branches), num_roots, ccs);
 		if (cuda_error("transpose_array_kernel", true, __FILE__, __LINE__)) return false;
 		t_elapsed = stopwatch.stop();
-		print_verbose("Done transposing critical curve array. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
+		print_verbose("Done transposing critical curve array. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 3);
 
 		return true;
 	}
@@ -571,7 +571,7 @@ private:
 			rectangular, corner, approx, taylor_smooth, caustics);
 		if (cuda_error("find_caustics_kernel", true, __FILE__, __LINE__)) return false;
 		t_caustics = stopwatch.stop();
-		print_verbose("Done finding caustic positions. Elapsed time: " << t_caustics << " seconds.\n\n", verbose, 2);
+		print_verbose("Done finding caustic positions. Elapsed time: " << t_caustics << " seconds.\n", verbose, 2);
 
 		return true;
 	}
@@ -589,7 +589,7 @@ private:
 				rectangular, corner, approx, taylor_smooth, mu_length_scales);
 			if (cuda_error("find_mu_length_scales_kernel", true, __FILE__, __LINE__)) return false;
 			t_elapsed = stopwatch.stop();
-			print_verbose("Done finding magnification length scales. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 2);
+			print_verbose("Done finding magnification length scales. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 2);
 		}
 
 		return true;
