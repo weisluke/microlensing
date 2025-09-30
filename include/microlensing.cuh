@@ -549,7 +549,7 @@ protected:
 
 		do
 		{
-			print_verbose("\nProcessing level " << tree_levels << "\n", verbose, 3);
+			print_verbose("Processing level " << tree_levels << "\n", verbose, 3);
 
 			*max_num_stars_in_level = 0;
 			*min_num_stars_in_level = num_stars;
@@ -596,7 +596,6 @@ protected:
 				if (cuda_error("set_neighbors_kernel", true, __FILE__, __LINE__)) return false;
 			}
 		} while (*max_num_stars_in_level > treenode::MAX_NUM_STARS_DIRECT);
-		print_verbose("\n", verbose, 3);
 		set_param("tree_levels", tree_levels, tree_levels, verbose);
 
 
