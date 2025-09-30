@@ -109,7 +109,7 @@ private:
 		free memory and set variables to nullptr
 		******************************************************************************/
 
-		if (!Microlensing<T>::clear_memory(0, return_on_error)) return false;
+		if (!Microlensing<T>::clear_memory(verbose, return_on_error)) return false;
 
 		cudaFree(ccs_init);
 		if (return_on_error && cuda_error("cudaFree(*ccs_init)", false, __FILE__, __LINE__)) return false;
@@ -147,7 +147,7 @@ private:
 	{
 		print_verbose("Checking CCF<T> input parameters...\n", verbose, 3);
 
-		if (!Microlensing<T>::check_input_params(0)) return false;
+		if (!Microlensing<T>::check_input_params(verbose)) return false;
 
 		if (num_stars < 1)
 		{
@@ -200,7 +200,7 @@ private:
 		print_verbose("Calculating CCF<T> derived parameters...\n", verbose, 3);
 		stopwatch.start();
 
-		if (!Microlensing<T>::calculate_derived_params(0)) return false;
+		if (!Microlensing<T>::calculate_derived_params(verbose)) return false;
 
 		/******************************************************************************
 		if stars are not drawn from external file, calculate corner of the star field
@@ -289,7 +289,7 @@ private:
 		print_verbose("Allocating CCF<T> memory...\n", verbose, 3);
 		stopwatch.start();
 		
-		if (!Microlensing<T>::allocate_initialize_memory(0)) return false;
+		if (!Microlensing<T>::allocate_initialize_memory(verbose)) return false;
 
 		/******************************************************************************
 		allocate memory for array of critical curve positions

@@ -130,7 +130,7 @@ private:
 		free memory and set variables to nullptr
 		******************************************************************************/
 
-		if (!Microlensing<T>::clear_memory(0, return_on_error)) return false;
+		if (!Microlensing<T>::clear_memory(verbose, return_on_error)) return false;
 
 		cudaFree(pixels);
 		if (return_on_error && cuda_error("cudaFree(*pixels)", false, __FILE__, __LINE__)) return false;
@@ -176,7 +176,7 @@ private:
 	{
 		print_verbose("Checking IPM<T> input parameters...\n", verbose, 3);
 
-		if (!Microlensing<T>::check_input_params(0)) return false;
+		if (!Microlensing<T>::check_input_params(verbose)) return false;
 
 		if (light_loss < std::numeric_limits<T>::min())
 		{
@@ -234,7 +234,7 @@ private:
 		print_verbose("Calculating IPM<T> derived parameters...\n", verbose, 3);
 		stopwatch.start();
 
-		if (!Microlensing<T>::calculate_derived_params(0)) return false;
+		if (!Microlensing<T>::calculate_derived_params(verbose)) return false;
 
 		/******************************************************************************
 		number density of rays in the lens plane
@@ -369,7 +369,7 @@ private:
 		print_verbose("Allocating IPM<T> memory...\n", verbose, 3);
 		stopwatch.start();
 		
-		if (!Microlensing<T>::allocate_initialize_memory(0)) return false;
+		if (!Microlensing<T>::allocate_initialize_memory(verbose)) return false;
 
 		/******************************************************************************
 		allocate memory for pixels
