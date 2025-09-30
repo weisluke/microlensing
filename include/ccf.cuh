@@ -58,8 +58,6 @@ private:
 	using Microlensing<T>::MAX_TAYLOR_SMOOTH;
 	using Microlensing<T>::threads;
 	using Microlensing<T>::blocks;
-	using Microlensing<T>::stopwatch;
-	using Microlensing<T>::t_elapsed;
 	using Microlensing<T>::mean_mass;
 	using Microlensing<T>::mean_mass2;
 	using Microlensing<T>::mean_mass2_ln_mass;
@@ -76,6 +74,11 @@ private:
 	using Microlensing<T>::tree;
 	using Microlensing<T>::stars;
 
+	/******************************************************************************
+	stopwatch for timing purposes
+	******************************************************************************/
+	Stopwatch stopwatch;
+	double t_elapsed;
 	//to store how long locating the critical curves and caustics took
 	double t_init_roots;
 	double t_ccs;

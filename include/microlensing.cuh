@@ -54,6 +54,14 @@ public:
 	std::string outfile_prefix = "./";
 
 
+private:
+	/******************************************************************************
+	stopwatch for timing purposes
+	******************************************************************************/
+	Stopwatch stopwatch;
+	double t_elapsed;
+
+
 protected:
 	/******************************************************************************
 	protected for IPM, will be made public for CCF
@@ -73,12 +81,6 @@ protected:
 	cudaDeviceProp cuda_device_prop;
 	dim3 threads;
 	dim3 blocks;
-
-	/******************************************************************************
-	stopwatch for timing purposes
-	******************************************************************************/
-	Stopwatch stopwatch;
-	double t_elapsed;
 
 	/******************************************************************************
 	derived variables
