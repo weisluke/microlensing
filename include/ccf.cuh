@@ -224,7 +224,7 @@ private:
 		}
 
 		//error is 10^-7 einstein radii
-		set_param("alpha_error", alpha_error, theta_star * 0.0000001, verbose, !(rectangular && approx) && verbose < 3);
+		set_param("alpha_error", alpha_error, theta_star * 0.0000001, verbose);
 
 		taylor_smooth = 1;
 		while ((kappa_star * std::numbers::inv_pi_v<T> * 4 / (taylor_smooth + 1) * corner.abs() * (safety_scale + 1) / (safety_scale - 1)
@@ -244,7 +244,7 @@ private:
 		{
 			taylor_smooth += 2;
 		}
-		set_param("taylor_smooth", taylor_smooth, taylor_smooth, verbose * (rectangular && approx), verbose < 3);
+		set_param("taylor_smooth", taylor_smooth, taylor_smooth, verbose);
 		if (rectangular && taylor_smooth > MAX_TAYLOR_SMOOTH)
 		{
 			std::cerr << "Error. taylor_smooth must be <= " << MAX_TAYLOR_SMOOTH << "\n";

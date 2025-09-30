@@ -473,7 +473,7 @@ protected:
 		set_param("m_upper_actual", m_upper_actual, m_upper_actual, verbose);
 		set_param("mean_mass_actual", mean_mass_actual, mean_mass_actual, verbose);
 		set_param("mean_mass2_actual", mean_mass2_actual, mean_mass2_actual, verbose);
-		set_param("mean_mass2_ln_mass_actual", mean_mass2_ln_mass_actual, mean_mass2_ln_mass_actual, verbose, starfile != "");
+		set_param("mean_mass2_ln_mass_actual", mean_mass2_ln_mass_actual, mean_mass2_ln_mass_actual, verbose);
 
 		if (starfile == "")
 		{
