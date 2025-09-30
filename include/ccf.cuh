@@ -666,7 +666,6 @@ private:
 		outfile << "t_caustics " << t_caustics << "\n";
 		outfile.close();
 		print_verbose("Done writing parameter info to file " << fname << "\n", verbose, 1);
-		print_verbose("\n", verbose * (write_stars || write_critical_curves || write_caustics || write_mu_length_scales), 2);
 
 
 		if (write_stars)
@@ -679,7 +678,6 @@ private:
 				return false;
 			}
 			print_verbose("Done writing star info to file " << fname << "\n", verbose, 1);
-			print_verbose("\n", verbose * (write_critical_curves || write_caustics || write_mu_length_scales), 2);
 		}
 
 
@@ -696,7 +694,6 @@ private:
 				return false;
 			}
 			print_verbose("Done writing critical curve positions to file " << fname << "\n", verbose, 1);
-			print_verbose("\n", verbose * (write_caustics || write_mu_length_scales), 2);
 		}
 
 
@@ -713,7 +710,6 @@ private:
 				return false;
 			}
 			print_verbose("Done writing caustic positions to file " << fname << "\n", verbose, 1);
-			print_verbose("\n", verbose * write_mu_length_scales, 2);
 		}
 
 		if (write_mu_length_scales)
