@@ -96,7 +96,7 @@ private:
 
 		if (verbose >= 3)
 		{
-			std::cout << "Available CUDA capable devices:\n\n";
+			std::cout << "Available CUDA capable devices:\n";
 
 			for (int i = 0; i < n_devices; i++)
 			{
@@ -110,14 +110,14 @@ private:
 
 		if (n_devices > 1)
 		{
-			print_verbose("More than one CUDA capable device detected. Defaulting to first device.\n\n", verbose, 2);
+			print_verbose("More than one CUDA capable device detected. Defaulting to first device.\n", verbose, 2);
 		}
 		cudaSetDevice(0);
 		if (cuda_error("cudaSetDevice", false, __FILE__, __LINE__)) return false;
 		cudaGetDeviceProperties(&cuda_device_prop, 0);
 		if (cuda_error("cudaGetDeviceProperties", false, __FILE__, __LINE__)) return false;
 
-		print_verbose("Done setting device.\n\n", verbose, 3);
+		print_verbose("Done setting device.\n", verbose, 3);
 		return true;
 	}
 
@@ -142,7 +142,7 @@ private:
 		if (return_on_error && cuda_error("cudaFree(*histogram)", false, __FILE__, __LINE__)) return false;
 		histogram = nullptr;
 
-		print_verbose("Done clearing memory.\n\n", verbose, 3);
+		print_verbose("Done clearing memory.\n", verbose, 3);
 		return true;
 	}
 
@@ -182,7 +182,7 @@ private:
 		}
 
 
-		print_verbose("Done checking input parameters.\n\n", verbose, 3);
+		print_verbose("Done checking input parameters.\n", verbose, 3);
 		
 		return true;
 	}
@@ -213,7 +213,7 @@ private:
 		}
 
 		t_elapsed = stopwatch.stop();
-		print_verbose("Done reading in caustics. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 1);
+		print_verbose("Done reading in caustics. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 1);
 
 		return true;
 	}
@@ -229,7 +229,7 @@ private:
 		num_pixels_y.re <<= over_sample;
 		num_pixels_y.im <<= over_sample;
 		set_param("num_pixels_y1", num_pixels_y.re, num_pixels_y.re, verbose);
-		set_param("num_pixels_y2", num_pixels_y.im, num_pixels_y.im, verbose, verbose < 3);
+		set_param("num_pixels_y2", num_pixels_y.im, num_pixels_y.im, verbose);
 
 		/******************************************************************************
 		allocate memory for pixels
@@ -238,7 +238,7 @@ private:
 		if (cuda_error("cudaMallocManaged(*num_crossings)", false, __FILE__, __LINE__)) return false;
 
 		t_elapsed = stopwatch.stop();
-		print_verbose("Done allocating memory. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
+		print_verbose("Done allocating memory. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 3);
 
 
 		/******************************************************************************
@@ -250,7 +250,7 @@ private:
 		thrust::fill(thrust::device, num_crossings, num_crossings + num_pixels_y.re * num_pixels_y.im, 0);
 
 		t_elapsed = stopwatch.stop();
-		print_verbose("Done initializing array values. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 3);
+		print_verbose("Done initializing array values. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 3);
 
 		return true;
 	}
@@ -274,7 +274,7 @@ private:
 		find_num_caustic_crossings_kernel<T> <<<blocks, threads>>> (caustics, num_rows, num_cols, center_y, half_length_y, num_crossings, num_pixels_y, percentage, verbose);
 		if (cuda_error("find_num_caustic_crossings_kernel", true, __FILE__, __LINE__)) return false;
 		t_ncc = stopwatch.stop();
-		print_verbose("\nDone calculating number of caustic crossings. Elapsed time: " << t_ncc << " seconds.\n\n", verbose, 1);
+		print_verbose("\nDone calculating number of caustic crossings. Elapsed time: " << t_ncc << " seconds.\n", verbose, 1);
 
 
 		cudaFree(percentage);
@@ -315,7 +315,7 @@ private:
 			if (cuda_error("shift_pix_kernel", true, __FILE__, __LINE__)) return false;
 		}
 		double t_reduce = stopwatch.stop();
-		print_verbose("Done downsampling number of caustic crossings. Elapsed time: " << t_reduce << " seconds.\n\n", verbose, 1);
+		print_verbose("Done downsampling number of caustic crossings. Elapsed time: " << t_reduce << " seconds.\n", verbose, 1);
 		
 		min_num = *thrust::min_element(thrust::device, num_crossings, num_crossings + num_pixels_y.re * num_pixels_y.im);
 		if (min_num < 0)
@@ -355,7 +355,7 @@ private:
 			if (cuda_error("histogram_kernel", true, __FILE__, __LINE__)) return false;
 
 			t_elapsed = stopwatch.stop();
-			print_verbose("Done creating histograms. Elapsed time: " << t_elapsed << " seconds.\n\n", verbose, 2);
+			print_verbose("Done creating histograms. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 2);
 		}
 
 		/******************************************************************************
@@ -394,7 +394,6 @@ private:
 		outfile << "t_reduce " << t_reduce << "\n";
 		outfile.close();
 		print_verbose("Done writing parameter info to file " << fname << "\n", verbose, 1);
-		print_verbose("\n", verbose * (write_histograms || write_maps), 2);
 
 
 		/******************************************************************************
@@ -410,7 +409,6 @@ private:
 				return false;
 			}
 			print_verbose("Done writing number of caustic crossings histogram to file " << fname << "\n", verbose, 1);
-			print_verbose("\n", verbose * write_maps, 2);
 		}
 
 
