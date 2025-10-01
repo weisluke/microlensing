@@ -626,59 +626,15 @@ private:
 
 		if (!Microlensing<T>::write_files(verbose, "ipm")) return false;
 
-		print_verbose("Writing parameter info...\n", verbose, 2);
+		print_verbose("Writing IPM<T> parameter info...\n", verbose, 2);
 		fname = outfile_prefix + "ipm_parameter_info.txt";
-		outfile.open(fname);
+		outfile.open(fname, std::ios_base::app);
 		if (!outfile.is_open())
 		{
 			std::cerr << "Error. Failed to open file " << fname << "\n";
 			return false;
 		}
-		outfile << "kappa_tot " << kappa_tot << "\n";
-		outfile << "shear " << shear << "\n";
-		outfile << "mu_ave " << mu_ave << "\n";
-		outfile << "smooth_fraction " << (1 - kappa_star / kappa_tot) << "\n";
-		outfile << "kappa_star " << kappa_star << "\n";
-		if (starfile == "")
-		{
-			outfile << "kappa_star_actual " << kappa_star_actual << "\n";
-		}
-		outfile << "theta_star " << theta_star << "\n";
-		outfile << "random_seed " << random_seed << "\n";
-		if (starfile == "")
-		{
-			outfile << "mass_function " << mass_function_str << "\n";
-			if (mass_function_str == "salpeter" || mass_function_str == "kroupa")
-			{
-				outfile << "m_solar " << m_solar << "\n";
-			}
-			outfile << "m_lower " << m_lower << "\n";
-			outfile << "m_upper " << m_upper << "\n";
-			outfile << "mean_mass " << mean_mass << "\n";
-			outfile << "mean_mass2 " << mean_mass2 << "\n";
-			outfile << "mean_mass2_ln_mass " << mean_mass2_ln_mass << "\n";
-		}
-		outfile << "m_lower_actual " << m_lower_actual << "\n";
-		outfile << "m_upper_actual " << m_upper_actual << "\n";
-		outfile << "mean_mass_actual " << mean_mass_actual << "\n";
-		outfile << "mean_mass2_actual " << mean_mass2_actual << "\n";
-		outfile << "mean_mass2_ln_mass_actual " << mean_mass2_ln_mass_actual << "\n";
 		outfile << "light_loss " << light_loss << "\n";
-		outfile << "num_stars " << num_stars << "\n";
-		if (rectangular)
-		{
-			outfile << "corner_x1 " << corner.re << "\n";
-			outfile << "corner_x2 " << corner.im << "\n";
-			if (approx)
-			{
-				outfile << "taylor_smooth " << taylor_smooth << "\n";
-			}
-		}
-		else
-		{
-			outfile << "rad " << corner.abs() << "\n";
-		}
-		outfile << "safety_scale " << safety_scale << "\n";
 		outfile << "center_y1 " << center_y.re << "\n";
 		outfile << "center_y2 " << center_y.im << "\n";
 		outfile << "half_length_y1 " << half_length_y.re << "\n";
@@ -693,15 +649,11 @@ private:
 		outfile << "num_rays_x " << num_rays_x << "\n";
 		outfile << "ray_half_sep_1 " << ray_half_sep.re << "\n";
 		outfile << "ray_half_sep_2 " << ray_half_sep.im << "\n";
-		outfile << "alpha_error " << alpha_error << "\n";
-		outfile << "expansion_order " << expansion_order << "\n";
-		outfile << "root_half_length " << root_half_length << "\n";
 		outfile << "num_ray_threads_1 " << num_ray_threads.re << "\n";
 		outfile << "num_ray_threads_2 " << num_ray_threads.im << "\n";
-		outfile << "tree_levels " << tree_levels << "\n";
 		outfile << "t_shoot_cells " << t_shoot_cells << "\n";
 		outfile.close();
-		print_verbose("Done writing parameter info to file " << fname << "\n", verbose, 1);
+		print_verbose("Done writing IPM<T> parameter info to file " << fname << "\n", verbose, 1);
 
 
 		/******************************************************************************

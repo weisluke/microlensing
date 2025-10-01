@@ -689,20 +689,79 @@ protected:
 		return true;
 	}
 
-	bool write_files(int verbose, const std::string& class_name = "")
+	bool write_files(int verbose, const std::string& class_name = "microlensing")
 	{
 		std::string fname;
 
+		print_verbose("Writing Microlensing<T> parameter info...\n", verbose, 2);
+		fname = outfile_prefix + class_name + "_parameter_info.txt";
+		outfile.open(fname);
+		if (!outfile.is_open())
+		{
+			std::cerr << "Error. Failed to open file " << fname << "\n";
+			return false;
+		}
+		outfile << "kappa_tot " << kappa_tot << "\n";
+		outfile << "shear " << shear << "\n";
+		outfile << "mu_ave " << mu_ave << "\n";
+		outfile << "smooth_fraction " << (1 - kappa_star / kappa_tot) << "\n";
+		outfile << "kappa_star " << kappa_star << "\n";
+		if (starfile == "")
+		{
+			outfile << "kappa_star_actual " << kappa_star_actual << "\n";
+		}
+		outfile << "theta_star " << theta_star << "\n";
+		outfile << "random_seed " << random_seed << "\n";
+		if (starfile == "")
+		{
+			outfile << "mass_function " << mass_function_str << "\n";
+			if (mass_function_str == "salpeter" || mass_function_str == "kroupa")
+			{
+				outfile << "m_solar " << m_solar << "\n";
+			}
+			outfile << "m_lower " << m_lower << "\n";
+			outfile << "m_upper " << m_upper << "\n";
+			outfile << "mean_mass " << mean_mass << "\n";
+			outfile << "mean_mass2 " << mean_mass2 << "\n";
+			outfile << "mean_mass2_ln_mass " << mean_mass2_ln_mass << "\n";
+		}
+		outfile << "m_lower_actual " << m_lower_actual << "\n";
+		outfile << "m_upper_actual " << m_upper_actual << "\n";
+		outfile << "mean_mass_actual " << mean_mass_actual << "\n";
+		outfile << "mean_mass2_actual " << mean_mass2_actual << "\n";
+		outfile << "mean_mass2_ln_mass_actual " << mean_mass2_ln_mass_actual << "\n";
+		outfile << "num_stars " << num_stars << "\n";
+		if (rectangular)
+		{
+			outfile << "corner_x1 " << corner.re << "\n";
+			outfile << "corner_x2 " << corner.im << "\n";
+			if (approx)
+			{
+				outfile << "taylor_smooth " << taylor_smooth << "\n";
+			}
+		}
+		else
+		{
+			outfile << "rad " << corner.abs() << "\n";
+		}
+		outfile << "safety_scale " << safety_scale << "\n";
+		outfile << "alpha_error " << alpha_error << "\n";
+		outfile << "expansion_order " << expansion_order << "\n";
+		outfile << "root_half_length " << root_half_length << "\n";
+		outfile << "tree_levels " << tree_levels << "\n";
+		outfile.close();
+		print_verbose("Done writing Microlensing<T> parameter info to file " << fname << "\n", verbose, 1);
+
 		if (write_stars)
 		{
-			print_verbose("Writing star info...\n", verbose, 2);
+			print_verbose("Writing Microlensing<T> star info...\n", verbose, 2);
 			fname = outfile_prefix + class_name + "_stars" + outfile_type;
 			if (!write_star_file<T>(num_stars, rectangular, corner, theta_star, stars, fname))
 			{
 				std::cerr << "Error. Unable to write star info to file " << fname << "\n";
 				return false;
 			}
-			print_verbose("Done writing star info to file " << fname << "\n", verbose, 1);
+			print_verbose("Done writing Microlensing<T> star info to file " << fname << "\n", verbose, 1);
 		}
 
 		return true;
