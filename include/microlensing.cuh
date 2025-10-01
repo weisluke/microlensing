@@ -689,6 +689,25 @@ protected:
 		return true;
 	}
 
+	bool write_files(int verbose, const std::string& class_name = "")
+	{
+		std::string fname;
+
+		if (write_stars)
+		{
+			print_verbose("Writing star info...\n", verbose, 2);
+			fname = outfile_prefix + class_name + "_stars" + outfile_type;
+			if (!write_star_file<T>(num_stars, rectangular, corner, theta_star, stars, fname))
+			{
+				std::cerr << "Error. Unable to write star info to file " << fname << "\n";
+				return false;
+			}
+			print_verbose("Done writing star info to file " << fname << "\n", verbose, 1);
+		}
+
+		return true;
+	}
+
 
 public:
 

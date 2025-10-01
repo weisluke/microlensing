@@ -597,6 +597,8 @@ private:
 		std::string fname;
 
 
+		if (!Microlensing<T>::write_files(verbose, "mif")) return false;
+
 		print_verbose("Writing parameter info...\n", verbose, 2);
 		fname = outfile_prefix + "mif_parameter_info.txt";
 		outfile.open(fname);
@@ -662,18 +664,6 @@ private:
 		print_verbose("Done writing parameter info to file " << fname << "\n", verbose, 1);
 		print_verbose("\n", verbose * (write_stars || write_images || write_image_lines), 2);
 
-
-		if (write_stars)
-		{
-			print_verbose("Writing star info...\n", verbose, 2);
-			fname = outfile_prefix + "mif_stars" + outfile_type;
-			if (!write_star_file<T>(num_stars, rectangular, corner, theta_star, stars, fname))
-			{
-				std::cerr << "Error. Unable to write star info to file " << fname << "\n";
-				return false;
-			}
-			print_verbose("Done writing star info to file " << fname << "\n", verbose, 1);
-		}
 
 		if (write_images)
 		{
