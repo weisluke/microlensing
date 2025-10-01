@@ -5,6 +5,7 @@
 #include "ipm_functions.cuh"
 #include "microlensing.cuh"
 #include "star.cuh"
+#include "stopwatch.hpp"
 #include "util/util.cuh"
 
 #include <curand_kernel.h>
