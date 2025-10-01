@@ -8,7 +8,6 @@
 #include "stopwatch.hpp"
 #include "util/util.cuh"
 
-#include <curand_kernel.h>
 #include <thrust/execution_policy.h> //for thrust::device
 #include <thrust/extrema.h> //for thrust::max_element
 #include <thrust/fill.h> //for thrust::fill
