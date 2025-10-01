@@ -375,7 +375,7 @@ private:
 		outfile.precision(9);
 		std::string fname;
 
-		print_verbose("Writing parameter info...\n", verbose, 2);
+		print_verbose("Writing NCC<T> parameter info...\n", verbose, 2);
 		fname = outfile_prefix + "ncc_parameter_info.txt";
 		outfile.open(fname);
 		if (!outfile.is_open())
@@ -393,7 +393,7 @@ private:
 		outfile << "t_ncc " << t_ncc << "\n";
 		outfile << "t_reduce " << t_reduce << "\n";
 		outfile.close();
-		print_verbose("Done writing parameter info to file " << fname << "\n", verbose, 1);
+		print_verbose("Done writing NCC<T> parameter info to file " << fname << "\n", verbose, 1);
 
 
 		/******************************************************************************
