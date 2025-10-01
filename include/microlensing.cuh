@@ -691,6 +691,12 @@ protected:
 
 	bool write_files(int verbose, const std::string& class_name = "microlensing")
 	{
+		/******************************************************************************
+		stream for writing output files
+		set precision to 9 digits
+		******************************************************************************/
+		std::ofstream outfile;
+		outfile.precision(9);
 		std::string fname;
 
 		print_verbose("Writing Microlensing<T> parameter info...\n", verbose, 2);
