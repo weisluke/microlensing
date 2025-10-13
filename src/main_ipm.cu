@@ -6,13 +6,7 @@ Email: weisluke@alum.mit.edu
 ******************************************************************************/
 
 
-#if defined(is_ipm) && !defined(is_irs)
 #include "ipm.cuh"
-#elif !defined(is_ipm) && defined(is_irs)
-#include "irs.cuh"
-#else
-#error "Error. One, and only one, of is_ipm or is_irs must be defined"
-#endif
 #include "util/util.cuh"
 
 #include <iostream>
@@ -27,13 +21,7 @@ using dtype = double; //type to be used throughout this program. float or double
 #error "Error. One, and only one, of is_float or is_double must be defined"
 #endif
 
-#if defined(is_ipm) && !defined(is_irs)
 IPM<dtype> map_maker;
-#elif !defined(is_ipm) && defined(is_irs)
-IRS<dtype> map_maker;
-#else
-#error "Error. One, and only one, of IPM_map or IRS_map must be defined"
-#endif
 
 /******************************************************************************
 constants to be used
