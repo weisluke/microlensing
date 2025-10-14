@@ -108,6 +108,14 @@ class MIF(object):
             self.lib.set_shear(self.obj, value)
 
     @property
+    def mu1(self):
+        return 1 / (1 - self.kappa_tot + self.shear)
+
+    @property
+    def mu2(self):
+        return 1 / (1 - self.kappa_tot - self.shear)
+
+    @property
     def mu_ave(self):
         return 1 / ((1 - self.kappa_tot)**2 - self.shear**2)
 
@@ -402,22 +410,22 @@ class MIF(object):
     # contours containing 90, 99, and 99.9 % of the magnification on average
     @property
     def c90(self):
-        return np.array([[(self.y1 - self.stars.r90) / np.abs(1 - self.kappa_tot + self.shear),
-                          (self.y1 + self.stars.r90) / np.abs(1 - self.kappa_tot + self.shear)],
-                         [(self.y2 - self.stars.r90) / np.abs(1 - self.kappa_tot - self.shear),
-                          (self.y2 + self.stars.r90) / np.abs(1 - self.kappa_tot - self.shear)]])
+        return np.array([[self.y1 * self.mu1 - self.stars.r90 * np.abs(self.mu1),
+                          self.y1 * self.mu1 + self.stars.r90 * np.abs(self.mu1)],
+                         [self.y2 * self.mu2 - self.stars.r90 * np.abs(self.mu2),
+                          self.y2 * self.mu2 + self.stars.r90 * np.abs(self.mu2)]])
     @property
     def c99(self):
-        return np.array([[(self.y1 - self.stars.r99) / np.abs(1 - self.kappa_tot + self.shear),
-                          (self.y1 + self.stars.r99) / np.abs(1 - self.kappa_tot + self.shear)],
-                         [(self.y2 - self.stars.r99) / np.abs(1 - self.kappa_tot - self.shear),
-                          (self.y2 + self.stars.r99) / np.abs(1 - self.kappa_tot - self.shear)]])
+        return np.array([[self.y1 * self.mu1 - self.stars.r99 * np.abs(self.mu1),
+                          self.y1 * self.mu1 + self.stars.r99 * np.abs(self.mu1)],
+                         [self.y2 * self.mu2 - self.stars.r99 * np.abs(self.mu2),
+                          self.y2 * self.mu2 + self.stars.r99 * np.abs(self.mu2)]])
     @property
     def c999(self):
-        return np.array([[(self.y1 - self.stars.r999) / np.abs(1 - self.kappa_tot + self.shear),
-                          (self.y1 + self.stars.r999) / np.abs(1 - self.kappa_tot + self.shear)],
-                         [(self.y2 - self.stars.r999) / np.abs(1 - self.kappa_tot - self.shear),
-                          (self.y2 + self.stars.r999) / np.abs(1 - self.kappa_tot - self.shear)]])
+        return np.array([[self.y1 * self.mu1 - self.stars.r999 * np.abs(self.mu1),
+                          self.y1 * self.mu1 + self.stars.r999 * np.abs(self.mu1)],
+                         [self.y2 * self.mu2 - self.stars.r999 * np.abs(self.mu2),
+                          self.y2 * self.mu2 + self.stars.r999 * np.abs(self.mu2)]])
 
     @property
     def bins(self):
