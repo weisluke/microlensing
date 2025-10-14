@@ -27,5 +27,5 @@ setup(
     platforms=['linux_x86_64'],
     package_data={"microlensing.lib": ["*.so"]},
     python_requires='>=3.10',
-    install_requires=['numpy', 'scipy', 'astropy', 'matplotlib', 'sncosmo>=2.10']
+    install_requires=['numpy', 'scipy', 'astropy', 'matplotlib', 'sncosmo>=2.10', 'shapely']
 )

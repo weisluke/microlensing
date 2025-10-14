@@ -1,5 +1,6 @@
 from . import lib_ccf
 from microlensing.Stars.stars import Stars
+from . import plotting
 
 import numpy as np
 from matplotlib.axes import Axes
@@ -105,6 +106,14 @@ class CCF(object):
     def shear(self, value):
         if value is not None:
             self.lib.set_shear(self.obj, value)
+
+    @property
+    def mu1(self):
+        return 1 / (1 - self.kappa_tot + self.shear)
+
+    @property
+    def mu2(self):
+        return 1 / (1 - self.kappa_tot - self.shear)
 
     @property
     def mu_ave(self):
@@ -363,7 +372,10 @@ class CCF(object):
 
         return dists
 
-    def plot_critical_curves(self, ax: Axes, color='black', cmap='viridis', plot_phase=False, **kwargs):
+    def plot_critical_curves(self, ax: Axes, color='black', cmap='viridis', fill_parities=False, plot_phase=False, **kwargs):
+
+        if fill_parities:
+            ax.add_collection(plotting.CriticalCurves(self.critical_curves))
 
         if plot_phase:
             norm = Normalize(0, 2 * np.pi)

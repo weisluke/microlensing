@@ -5,6 +5,10 @@ import shapely
 import shapely.plotting
 
 
+colors = {-1: '#ff7700',  # saddlepoints are orange
+           0: '#ff7700',  # saddlepoints are orange if log_area makes eigvals 0
+           1: '#0077ff'}  # minima and maxima are blue
+
 def get_intersections(polygons1, polygons2):
     inter = [shapely.intersection(polygon, polygons2) for polygon in polygons1]
     inter = [what for row in inter for what in row]
@@ -13,10 +17,6 @@ def get_intersections(polygons1, polygons2):
 class Images(PatchCollection):
 
     def __init__(self, positions, invmags, s=1, is_ellipse=True, log_area=False, mu_min=10**-3, **kwargs):
-        
-        colors = {-1: '#ff7700',  # saddlepoints are orange
-                   0: '#ff7700',  # saddlepoints are orange if log_area makes eigvals 0
-                   1: '#0077ff'}  # minima and maxima are blue
 
         mags = np.linalg.inv(invmags)
         eigvals, eigvecs = np.linalg.eig(mags)

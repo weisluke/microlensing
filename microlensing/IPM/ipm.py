@@ -118,6 +118,14 @@ class IPM(object):
             self.lib.set_shear(self.obj, value)
 
     @property
+    def mu1(self):
+        return 1 / (1 - self.kappa_tot + self.shear)
+
+    @property
+    def mu2(self):
+        return 1 / (1 - self.kappa_tot - self.shear)
+
+    @property
     def mu_ave(self):
         return 1 / ((1 - self.kappa_tot)**2 - self.shear**2)
 
