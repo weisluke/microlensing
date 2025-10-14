@@ -453,26 +453,51 @@ class IPM(object):
         if not self.lib.save(self.obj, self.verbose):
             raise Exception("Error saving IPM")
 
-    def plot(self, ax: matplotlib.axes.Axes, cmap='viridis', plot_magnitudes=False, **kwargs):
+    def plot(self, ax: matplotlib.axes.Axes, cmap='viridis', plot_magnitudes=False, parity=None, **kwargs):
+        if parity not in [None, '+', '-']:
+            raise ValueError("parity must be None, '+', or '-'")
+
         if plot_magnitudes:
-            dat = self.magnitudes
+            if parity is None:
+                dat = self.magnitudes
+            elif parity == "+":
+                dat = self.magnitudes_minima
+            else:
+                dat = self.magnitudes_saddles
             cmap = cmap + '_r'
         else:
-            dat = np.log10(self.magnifications)
+            if parity is None:
+                dat = np.log10(self.magnifications)
+            elif parity == "+":
+                dat = np.log10(self.magnifications_minima)
+            else:
+                dat = np.log10(self.magnifications_saddles)
 
         # if min and max aren't given, use the inner 95 percent of the data
+        where = np.isfinite(dat)
         if 'vmin' not in kwargs.keys():
-            kwargs['vmin'] = np.percentile(dat, 2.5)
+            kwargs['vmin'] = np.percentile(dat[where], 2.5)
         if 'vmax' not in kwargs.keys():
-            kwargs['vmax'] = np.percentile(dat, 97.5)
+            kwargs['vmax'] = np.percentile(dat[where], 97.5)
 
         img = ax.imshow(dat, extent=self.extent.ravel(), cmap=cmap, **kwargs)
         cbar = ax.get_figure().colorbar(img)
         if plot_magnitudes:
-            cbar.set_label('microlensing $\\Delta m$ (magnitudes)')
+            if parity is None:
+                cbar.set_label('microlensing $\\Delta m$ (magnitudes)')
+            elif parity == "+":
+                cbar.set_label('microlensing $\\Delta m_\\text{microminima}$ (magnitudes)')
+            else:
+                cbar.set_label('microlensing $\\Delta m_\\text{microsaddles}$ (magnitudes)')
+
             cbar.ax.invert_yaxis()
         else:
-            cbar.set_label('$\\log\\mu$')
+            if parity is None:
+                cbar.set_label('$\\log(\\mu)$')
+            elif parity == "+":
+                cbar.set_label('$\\log(\\mu_\\text{microminima})$')
+            else:
+                cbar.set_label('$\\log(\\mu_\\text{microsaddles})$')
 
         if self.theta_star == 1:
             ax.set_xlabel('$y_1 / \\theta_★$')
@@ -481,22 +506,51 @@ class IPM(object):
             ax.set_xlabel('$y_1$')
             ax.set_ylabel('$y_2$')
 
-    def plot_hist(self, ax: matplotlib.axes.Axes, bins=None, dw=0.01, plot_magnitudes=False, **kwargs):
+    def plot_hist(self, ax: matplotlib.axes.Axes, bins=None, dw=0.01, plot_magnitudes=False, parity=None, **kwargs):
+        if parity not in [None, '+', '-']:
+            raise ValueError("parity must be None, '+', or '-'")
+        
         if plot_magnitudes:
-            dat = self.magnitudes.ravel()
+            if parity is None:
+                dat = self.magnitudes.ravel()
+            elif parity == "+":
+                dat = self.magnitudes_minima.ravel()
+            else:
+                dat = self.magnitudes_saddles.ravel()
         else:
-            dat = np.log10(self.magnifications.ravel())
+            if parity is None:
+                dat = np.log10(self.magnifications.ravel())
+            elif parity == "+":
+                dat = np.log10(self.magnifications_minima.ravel())
+            else:
+                dat = np.log10(self.magnifications_saddles.ravel())
 
         if bins is None:
-            vmin, vmax = (np.min(dat), np.max(dat))
+            where = np.isfinite(dat)
+            vmin, vmax = (np.min(dat[where]), np.max(dat[where]))
             bins = np.arange(vmin - dw, vmax + dw, dw)
 
         ax.hist(dat, bins=bins, density=True, **kwargs)
 
         if plot_magnitudes:
-            ax.set_xlabel('microlensing $\\Delta m$ (magnitudes)')
-            ax.set_ylabel('p($\\Delta m$)')
+            if parity is None:
+                ax.set_xlabel('microlensing $\\Delta m$ (magnitudes)')
+                ax.set_ylabel('p($\\Delta m$)')
+            elif parity == "+":
+                ax.set_xlabel('microlensing $\\Delta m_\\text{microminima}$ (magnitudes)')
+                ax.set_ylabel('p($\\Delta m_\\text{microminima}$)')
+            else:
+                ax.set_xlabel('microlensing $\\Delta m_\\text{microsaddles}$ (magnitudes)')
+                ax.set_ylabel('p($\\Delta m_\\text{microsaddles}$)')
+
             ax.invert_xaxis()
         else:
-            ax.set_xlabel('$\\log\\mu$')
-            ax.set_ylabel('p($\\log\\mu$)')
+            if parity == None:
+                ax.set_xlabel('$\\log(\\mu)$')
+                ax.set_ylabel('p($\\log(\\mu)$)')
+            elif parity == "+":
+                ax.set_xlabel('$\\log(\\mu_\\text{microminima})$')
+                ax.set_ylabel('p($\\log(\\mu_\\text{microminima})$)')
+            else:
+                ax.set_xlabel('$\\log(\\mu_\\text{microsaddles})$')
+                ax.set_ylabel('p($\\log(\\mu_\\text{microsaddles})$)')
