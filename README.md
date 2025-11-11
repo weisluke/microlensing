@@ -26,7 +26,7 @@ I would love to be considered for involvement in any projects which make use of 
 
 
 ## Dependencies
-The code is written to be independent of anything besides the C++ standard libraries and the Thrust libraries that come with CUDA. We implement IPM, the FMM, the Sutherland-Hodgman algorithm, the Aberth-Ehrlich method, Sunday's algorithm, and a simlar algorithm to that of Lewis et al. [1993](https://ui.adsabs.harvard.edu/abs/1993MNRAS.261..647L/abstract) ourselves.
+The code is written to be independent of anything besides the C++ standard libraries and the Thrust libraries that come with CUDA. We implement IPM, the FMM, the Sutherland-Hodgman algorithm, the Aberth-Ehrlich method, Sunday's algorithm, and a similar algorithm to that of Lewis et al. [1993](https://ui.adsabs.harvard.edu/abs/1993MNRAS.261..647L/abstract) ourselves.
 
 The bulk of the code is written using NVIDIA's CUDA, and you will need a CUDA installation to compile and run it. We additionally require a C++20 compliant compiler.
 
