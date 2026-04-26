@@ -12,5 +12,6 @@ nvcc -std=c++20 -arch=compute_75 -code="sm_75,compute_75" --use_fast_math -I ./i
 nvcc -std=c++20 -arch=compute_75 -code="sm_75,compute_75" --use_fast_math -I ./include -O3 -D is_double -o ./bin/mif_gpu ./src/main_mif.cu
 nvcc -std=c++20 -arch=compute_75 -code="sm_75,compute_75" --use_fast_math -I ./include -O3 -D is_double -shared -o ./bin/lib_mif.dll ./src/lib_mif.cu 
 
-mkdir ./microlensing/lib/
-cp ./bin/*.dll ./microlensing/lib/
+if not exist ./microlensing/lib/ mkdir ./microlensing/lib/
+REM note that the paths here needs backwards slashes for windows
+copy .\bin\*.dll .\microlensing\lib\
