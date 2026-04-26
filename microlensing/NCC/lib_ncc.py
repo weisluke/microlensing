@@ -1,12 +1,14 @@
-from sys import platform
+import platform
 import ctypes
 from importlib.resources import files
 
 
-if platform == 'linux':
+if platform.system() == 'Linux' and platform.architecture()[0] == '64bit':
     lib = ctypes.CDLL(files('microlensing.lib').joinpath('lib_ncc.so'))
+elif platform.system() == 'Windows' and platform.architecture()[0] == '64bit':
+    lib = ctypes.CDLL(files('microlensing.lib').joinpath('lib_ncc.dll'))
 else:
-    raise FileNotFoundError("NCC library for non-Linux platforms not yet available")
+    raise FileNotFoundError("NCC library only available for Linux and Windows 64bit platforms")
 
 lib.NCC_init.argtypes = []
 lib.NCC_init.restype = ctypes.c_void_p
