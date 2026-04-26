@@ -10,6 +10,7 @@
 #include "util/math_util.cuh"
 #include "util/util.cuh"
 
+#include <thrust/copy.h> //for thrust::copy
 #include <thrust/universal_vector.h> //for thrust::universal_vector
 
 #include <algorithm> //for std::min
