@@ -503,7 +503,7 @@ private:
         for (int i = 0; i < tmp_image_lines.size(); i++)
         {
             int start = std::reduce(&image_lines_lengths[0], &image_lines_lengths[i], 0);
-            thrust::copy(&tmp_image_lines[i].front(), &tmp_image_lines[i].back(), &image_lines[start]);
+            thrust::copy(&tmp_image_lines[i].front(), &tmp_image_lines[i].back() + 1, &image_lines[start]);
         }
         t_elapsed = stopwatch.stop();
         print_verbose("Done copying image lines. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 2);
