@@ -151,3 +151,24 @@ def read_hist(fname: str):
     :param fname: name of the file to read
     '''
     return np.loadtxt(fname, dtype=np.int32)
+
+
+def get_quantiles(x, p_x, where=None, **kwargs):
+    '''
+    Wrapper around numpy.quantile to get quantiles using weights and
+    the inverted CDF method. If no quantile is provided, defaults to
+    returning the median and +/- 1,2,3 sigma quantiles (ordered such
+    that the indices of the returned array correspond to the relative
+    quantile) 
+
+    :param x: values
+    :param p_x: weights of the values
+    :param where: quantile(s) to return. Must be in the range [0,1]
+    '''
+    if where is None:
+        # median and +/- 1,2,3 sigma contours
+        where = [0.5,
+                0.5 + 0.341344746, 0.5 + 0.477249868, 0.5 + 0.498650102,
+                0.5 - 0.498650102, 0.5 - 0.477249868, 0.5 - 0.341344746
+                ]
+    return np.quantile(x, where, weights=p_x, method='inverted_cdf', **kwargs)
