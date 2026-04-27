@@ -18,7 +18,7 @@ We use the fact that the caustics are clockwise (under the chosen critical curve
 We locate the images of infinite source lines using the method of Lewis et al. [1993](https://ui.adsabs.harvard.edu/abs/1993MNRAS.261..647L/abstract) (see also Witt [1993](https://ui.adsabs.harvard.edu/abs/1993ApJ...403..530W/abstract)) solely on CPUs, though GPUs are required to calculate the FMM coefficients. We can then also locate the microimage positions for a point source as the intersections of the images of two perpendicular lines. 
 
 ## Credits
-You are free to use this code under the provided license. If you happen to use it for any work that leads to publications, it would be much appreciated if you cite the appropriate paper for either creating magnification maps ([here](https://ui.adsabs.harvard.edu/abs/2025arXiv250602114W/abstract)), or for calculating critical curves, caustics, and the number of caustic crossings ([here](https://ui.adsabs.harvard.edu/abs/2025arXiv250602121W/abstract)). 
+You are free to use this code under the provided license. If you happen to use it for any work that leads to publications, it would be much appreciated if you cite the appropriate paper for either creating magnification maps ([here](https://ui.adsabs.harvard.edu/abs/2025MNRAS.541..281W/abstract)), or for calculating critical curves, caustics, and the number of caustic crossings ([here](https://ui.adsabs.harvard.edu/abs/2025MNRAS.541.3341W/abstract)). 
 
 I make no promise that the current state of the code will stay the same, or that things will always be backwards compatible. Poor design choices I made in the past may need be changed to make the future better! Suggested improvements and bugfixes are also always appreciated. 
 
@@ -28,26 +28,30 @@ I would love to be considered for involvement in any projects which make use of 
 ## Dependencies
 The code is written to be independent of anything besides the C++ standard libraries and the Thrust libraries that come with CUDA. We implement IPM, the FMM, the Sutherland-Hodgman algorithm, the Aberth-Ehrlich method, Sunday's algorithm, and a similar algorithm to that of Lewis et al. [1993](https://ui.adsabs.harvard.edu/abs/1993MNRAS.261..647L/abstract) ourselves.
 
-The bulk of the code is written using NVIDIA's CUDA, and you will need a CUDA installation to compile and run it. We additionally require a C++20 compliant compiler.
+The bulk of the code is written using NVIDIA's CUDA, and you will need a CUDA capable device to run it (and a CUDA installation to compile it, if necessary. We require a C++20 compliant compiler in that case).
 
 ## Repository layout
 The `include` directory contains the bulk of the code, which is written mostly as templated objects and functions. The `src` directory contains files for creating executables and libraries. The `bin` directory holds [compilation](#compiling) output. The `microlensing` directory contains [python](#python) code for ease of use, while the `examples` directory contains example python notebooks outlining usage.
 
 ## Compiling
-Compilation has been tested with the GNU compiler version 11.2.0 and the CUDA compiler version 12.4.
+Compilation has been tested with the GNU compiler v12.2.0 and the CUDA compiler v12.6.85 for Linux, and with the MSVC compiler v19.44.35226 and the CUDA compiler v12.5.82 for Windows.
 
 First, clone the repository.
 ```
 git clone https://github.com/weisluke/microlensing.git
 ```
 
-Then, simply run 
+Then, on Linux simply run 
 ```
 source compile
 ```
+or on Windows 
+```
+compile.bat
+```
 to run the compilation file. This should create 5 executables and 5 libraries in the `bin` directory. 
 
-I'll note that this repository contains the 5 libraries precompiled and placed in the `./microlensing/lib/` directory already. These libraries may or may not work on your hardware, as they were compiled for a particular cluster (NERSC), but you can try running the example [python](#python) notebooks first to see if they do. They *should* work for Linux distributions that have GLIBC >= 2.31 and GLIBCXX >= 3.4.29, but no promises. If there are errors, you will need to compile everything yourself (though I'm happy to do my best to help with that if need be).
+I'll note that this repository contains the libraries precompiled and placed in the `./microlensing/lib/` directory already. These libraries may or may not work on your hardware, as they were compiled for a particular cluster (SCIAMA) for Linux and on a home desktop for Windows, but you can try running the example [python](#python) notebooks first to see if they do. They *should* work for Linux distributions that have GLIBC >= 2.34 and GLIBCXX >= 3.4.29 and CUDA compute capabilities >=8.0, and for Windows 11 and CUDA compute capabilities >=7.5, but no promises. If there are errors, you will need to compile everything yourself (though I'm happy to do my best to help with that if need be).
 
 ## python
 
