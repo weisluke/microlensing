@@ -5,11 +5,10 @@ except ImportError:
     import numpy as np
     from scipy.signal import correlate
 
-from microlensing.IPM.ipm import IPM
 from . import util
 
 
-def constant_source(ipm: IPM, source, positions = 1, return_pos: bool = False):
+def constant_source(ipm, source, positions = 1, return_pos: bool = False):
     '''
     Return the magnification(s) for the provided magnification map,
     constant source profile, and position(s)
@@ -66,7 +65,7 @@ def constant_source(ipm: IPM, source, positions = 1, return_pos: bool = False):
             return magnifications, positions
         return magnifications
 
-def changing_source(ipm: IPM, source, positions = 1, return_pos: bool = False):
+def changing_source(ipm, source, positions = 1, return_pos: bool = False):
     '''
     Return the magnifications for the provided magnification map, 
     changing source profiles, and position(s)
