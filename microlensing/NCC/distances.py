@@ -18,10 +18,7 @@ def expanding_source(ncc: NCC):
     # pixels must be square for distance calculations
     assert ncc.pixel_scales[0] == ncc.pixel_scales[1]
 
-    if not isinstance(ncc.num_caustic_crossings, np.ndarray):
-        vals = np.array(ncc.num_caustic_crossings)
-    else:
-        vals = ncc.num_caustic_crossings
+    vals = np.asanyarray(ncc.num_caustic_crossings)
 
     d_caustic = np.zeros(vals.shape)
 
@@ -73,10 +70,7 @@ def moving_source(ncc: NCC, angle: float = 90):
 
         return distances.cumsum(1) - 0.5
 
-    if not isinstance(ncc.num_caustic_crossings, np.ndarray):
-        vals = np.array(ncc.num_caustic_crossings)
-    else:
-        vals = ncc.num_caustic_crossings
+    vals = np.asanyarray(ncc.num_caustic_crossings)
 
     # add 180 to angle since we calculate distances left along a row, 
     # but an angle of 0 is to the right

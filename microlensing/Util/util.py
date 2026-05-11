@@ -68,8 +68,7 @@ def write_stars(fname: str, stars, rectangular: bool, corner,
     if not fname.endswith('.bin'):
         raise ValueError('fname must be a .bin file')
     
-    if not isinstance(stars, np.ndarray):
-        stars = np.array(stars)
+    stars = np.asanyarray(stars)
     if stars.ndim != 2:
         raise ValueError("stars is not a 2D array")
     

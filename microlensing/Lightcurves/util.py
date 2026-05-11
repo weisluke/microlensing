@@ -16,14 +16,10 @@ def pixel_to_point(pixel, center, half_length, num_pixels):
     :param half_length: half_length of the map
     :param num_pixels: number of pixels of the map along the axes
     '''
-    if not isinstance(pixel, np.ndarray):
-        pixel = np.array(pixel)
-    if not isinstance(center, np.ndarray):
-        center = np.array(center)
-    if not isinstance(half_length, np.ndarray):
-        half_length = np.array(half_length)
-    if not isinstance(num_pixels, np.ndarray):
-        num_pixels = np.array(num_pixels)
+    pixel = np.asanyarray(pixel)
+    center = np.asanyarray(center)
+    half_length = np.asanyarray(half_length)
+    num_pixels = np.asanyarray(num_pixels)
     return pixel * 2 * half_length / num_pixels - half_length + center
 
 def get_borders(map, kernel):
@@ -92,8 +88,7 @@ def interpolated_map(values, center, half_length, num_pixels):
     :param half_length: half_length of the map
     :param num_pixels: number of pixels of the map along the axes
     '''
-    if not isinstance(values, np.ndarray):
-        values = np.array(values)
+    values = np.asanyarray(values)
 
     # add 0.5 to offset to center of pixels for interpolation
     x, y = np.arange(num_pixels[0]) + 0.5, np.arange(num_pixels[1]) + 0.5

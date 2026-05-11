@@ -13,10 +13,7 @@ class Stars():
         :param theta_star: Einstein radius of a unit mass point lens
         '''
 
-        if not isinstance(stars, np.ndarray):
-            self.stars = np.array(stars)
-        else:
-            self.stars = stars
+        self.stars = np.asanyarray(stars)
 
         self.rectangular = rectangular
 

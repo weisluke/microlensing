@@ -38,14 +38,9 @@ def constant_source(ncc: NCC, source, positions = 1, return_pos: bool = False):
         if not util.valid_positions(positions, ncc, source.profile):
             raise ValueError("provided positions do not lie within the necessary border")
 
-    if not isinstance(ncc.num_caustic_crossings, np.ndarray):
-        vals = np.array(ncc.num_caustic_crossings)
-    else:
-        vals = ncc.num_caustic_crossings
-    if not isinstance(source.profile, np.ndarray):
-        kernel = np.array(source.profile)
-    else:
-        kernel = source.profile
+    # copy since we will be changing values in the array
+    vals = np.asanyarray(ncc.num_caustic_crossings, copy=True)
+    kernel = np.asanyarray(source.profile)
     
     offset = np.min(vals) - 1
     vals = vals - offset
@@ -106,14 +101,9 @@ def changing_source(ncc: NCC, source, positions = 1, return_pos: bool = False):
         if not util.valid_positions(positions, ncc, source.profiles[-1]):
             raise ValueError("provided positions do not lie within the necessary border")
 
-    if not isinstance(ncc.num_caustic_crossings, np.ndarray):
-        vals = np.array(ncc.num_caustic_crossings)
-    else:
-        vals = ncc.num_caustic_crossings
-    if not isinstance(source.profiles, np.ndarray):
-        kernels = np.array(source.profiles)
-    else:
-        kernels = source.profiles
+    # copy since we will be changing values in the array
+    vals = np.asanyarray(ncc.num_caustic_crossings, copy=True)
+    kernels = np.asanyarray(source.profiles)
     
     offset = np.min(vals) - 1
     vals = vals - offset

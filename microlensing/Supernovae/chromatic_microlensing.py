@@ -16,11 +16,9 @@ class ChromaticMicrolensing(PropagationEffect):
         :param wavelengths: Array of wavelengths in Angstroms. If passed, mu
                             must be a 2D array
         """
-        if not isinstance(mu, np.ndarray):
-            mu = np.array(mu)
+        mu = np.asanyarray(mu)
 
-        if not isinstance(phases, np.ndarray):
-            phases = np.array(phases)
+        phases = np.asanyarray(phases)
         if phases.ndim != 1:
             raise ValueError("phases is not a 1D array")
         self._minphase = np.min(phases)
@@ -37,8 +35,7 @@ class ChromaticMicrolensing(PropagationEffect):
             else:
                 mu = np.repeat(mu[:, None], 2, axis=1)
         else:
-            if not isinstance(wavelengths, np.ndarray):
-                wavelengths = np.array(wavelengths)
+            wavelengths = np.asanyarray(wavelengths)
             if wavelengths.ndim != 1:
                 raise ValueError("wavelengths is not a 1D array")
             if mu.ndim != 2:

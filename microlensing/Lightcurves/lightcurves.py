@@ -38,18 +38,9 @@ def constant_source(ipm, source, positions = 1, return_pos: bool = False):
     # contrary to what is commonly stated, microlensing is technically a cross 
     # correlation  with the source profile, NOT a convolution
     # the difference only matters for non-radially symmetric sources
-    if not isinstance(ipm.magnifications, np.ndarray):
-        vals = np.array(ipm.magnifications)
-    else:
-        vals = ipm.magnifications
-    if not isinstance(source.profile, np.ndarray):
-        kernel = np.array(source.profile)
-    else:
-        kernel = source.profile
-    if not isinstance(source.weight, np.ndarray):
-        weight = np.array(source.weight)
-    else:
-        weight = source.weight
+    vals = np.asanyarray(ipm.magnifications)
+    kernel = np.asanyarray(source.profile)
+    weight = np.asanyarray(source.weight)
     correlated_map = correlate(vals, kernel, mode='same', method='fft') / weight
     interp = util.interpolated_map(correlated_map, ipm.center, 
                                    ipm.half_length, ipm.num_pixels)
@@ -122,14 +113,8 @@ def changing_source(ipm, source, positions = 1, return_pos: bool = False):
     x = np.expand_dims(x, -3)
     y = np.expand_dims(y, -3)
 
-    if not isinstance(source.profiles, np.ndarray):
-        kernels = np.array(source.profiles)
-    else:
-        kernels = source.profiles
-    if not isinstance(source.weights, np.ndarray):
-        weights = np.array(source.weights)
-    else:
-        weights = source.weights
+    kernels = np.asanyarray(source.profiles)
+    weights = np.asanyarray(source.weights)
 
     # interpolate magnifications on the source profile location grid
     # in the transpose, we want all axes to stay the same 
