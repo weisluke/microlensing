@@ -10,19 +10,21 @@ colors = {-1: '#ff7700',  # saddlepoints are orange
 
 # function to determine the order in which to join critical curves
 def list_order(x):
+    x = np.asanyarray(x)
+
     starts = np.round(x[:,0], 5) # round the first point on the curve to 5 decimal places
     starts = starts[:,0] + 1j * starts[:,1] # convert to complex numbers
 
     ends = np.round(x[:,-1], 5) # round final points to 5 decimal places
     ends = ends[:,0] + 1j * ends[:,1] # and convert to complex numbers
 
-    indices = range(0, len(starts)) # the size of the critical curve array (num_roots, basically)
-    # in order, the index of the curve that starts where curve[i] ends
-    where = [np.argwhere(starts == ends[i])[0,0] for i in indices]
+    # ensure there are no duplicated elements
+    assert np.unique(starts).size == starts.size == np.unique(ends).size == ends.size
 
-    res = {}
-    for a, b in zip(indices, where):
-        res[a] = b # dictionary mapping end -> start
+    # argsort gives indices. since we are sorting lists of the same values,
+    # just in different orders, we can zip the indices required to put
+    # ends and starts in the same order
+    res = dict(zip(np.argsort(ends), np.argsort(starts)))
     return res
 
 # calculate the area of a polygon defined by a list of points
