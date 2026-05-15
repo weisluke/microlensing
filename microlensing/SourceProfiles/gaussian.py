@@ -38,7 +38,6 @@ class Gaussian():
 
     @property
     def half_light_radius(self):
-
         # for a 2D gaussian, 0.5 of the PDF (i.e. the half-light radius) is
         # at r_0.5 = 1.1774100 * sigma, or equivalently
         # at r_0.5 = r_0.999 / 3.1568630
@@ -80,7 +79,6 @@ class Gaussians():
 
     @property
     def half_light_radii(self):
-
         # for a 2D gaussian, 0.5 of the PDF (i.e. the half-light radius) is
         # at r_0.5 = 1.1774100 * sigma, or equivalently
         # at r_0.5 = r_0.999 / 3.1568630
