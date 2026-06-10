@@ -1,12 +1,14 @@
-from sys import platform
+import platform
 import ctypes
 from importlib.resources import files
 
 
-if platform == 'linux':
+if platform.system() == 'Linux' and platform.architecture()[0] == '64bit':
     lib = ctypes.CDLL(files('microlensing.lib').joinpath('lib_mif.so'))
+elif platform.system() == 'Windows' and platform.architecture()[0] == '64bit':
+    lib = ctypes.CDLL(files('microlensing.lib').joinpath('lib_mif.dll'))
 else:
-    raise FileNotFoundError("MIF library for non-Linux platforms not yet available")
+    raise FileNotFoundError("MIF library only available for Linux and Windows 64bit platforms")
 
 lib.MIF_init.argtypes = []
 lib.MIF_init.restype = ctypes.c_void_p

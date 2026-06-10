@@ -1,12 +1,14 @@
-from sys import platform
+import platform
 import ctypes
 from importlib.resources import files
 
 
-if platform == 'linux':
+if platform.system() == 'Linux' and platform.architecture()[0] == '64bit':
     lib = ctypes.CDLL(files('microlensing.lib').joinpath('lib_ipm.so'))
+elif platform.system() == 'Windows' and platform.architecture()[0] == '64bit':
+    lib = ctypes.CDLL(files('microlensing.lib').joinpath('lib_ipm.dll'))
 else:
-    raise FileNotFoundError("IPM library for non-Linux platforms not yet available")
+    raise FileNotFoundError("IPM library only available for Linux and Windows 64bit platforms")
 
 lib.IPM_init.argtypes = []
 lib.IPM_init.restype = ctypes.c_void_p
