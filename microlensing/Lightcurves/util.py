@@ -36,7 +36,7 @@ def get_borders(map, kernel):
     x = (np.shape(kernel)[1] / 2, map.num_pixels[0] - np.shape(kernel)[1] / 2)
     y = (np.shape(kernel)[0] / 2, map.num_pixels[1] - np.shape(kernel)[0] / 2)
 
-    return pixel_to_point(np.transpose(np.array([x, y])), map.center, 
+    return pixel_to_point(np.array([x, y]).T, map.center, 
                           map.half_length, map.num_pixels).T
 
 def random_position(map, kernel, num: int = 1):
@@ -55,7 +55,7 @@ def random_position(map, kernel, num: int = 1):
     x, y = rng.uniform(*xlim, num), rng.uniform(*ylim, num)
 
     # squeeze to remove unnecessary dimensions if num=1
-    return np.squeeze(np.transpose(np.array([x, y])))
+    return np.squeeze(np.array([x, y]).T)
 
 def valid_positions(positions, map, kernel):
     '''
