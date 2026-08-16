@@ -97,21 +97,21 @@ __global__ void find_num_caustic_crossings_kernel(Complex<T>* caustics, int nrow
 	int y_index = blockIdx.y * blockDim.y + threadIdx.y;
 	int y_stride = blockDim.y * gridDim.y;
 
-	for (int i = x_index; i < nrows; i += x_stride)
+	for (int j = y_index; j < nrows; j += y_stride)
 	{
 		/******************************************************************************
 		only able to calculate a caustic crossing if a caustic point has a succeeding
 		point to form a line segment with (i.e., we are not at the end of the 2*pi
 		phase chain that was traced out), hence ncols - 1
 		******************************************************************************/
-		for (int j = y_index; j < ncols - 1; j += y_stride)
+		for (int i = x_index; i < ncols - 1; i += x_stride)
 		{
 			/******************************************************************************
 			initial and final point of the line segment
 			we will be calculating what pixels this line segment crosses
 			******************************************************************************/
-			Complex<T> pt0 = caustics[i * ncols + j] - center_y;
-			Complex<T> pt1 = caustics[i * ncols + j + 1] - center_y;
+			Complex<T> pt0 = caustics[j * ncols + i] - center_y;
+			Complex<T> pt1 = caustics[j * ncols + i + 1] - center_y;
 
 			/******************************************************************************
 			if one of the endpoints lies within the region, correct the points so they both
@@ -143,8 +143,8 @@ __global__ void find_num_caustic_crossings_kernel(Complex<T>* caustics, int nrow
 				if (threadIdx.x == 0 && threadIdx.y == 0)
 				{
 					unsigned long long int p = atomicAdd(percentage, 1);
-					unsigned long long int imax = ((nrows - 1) / blockDim.x + 1);
-					imax *= (((ncols - 1) - 1) / blockDim.y + 1);
+					unsigned long long int imax = (((ncols - 1) - 1) / blockDim.x + 1);
+					imax *= ((nrows - 1) / blockDim.y + 1);
 					if (p * 100 / imax > (p - 1) * 100 / imax)
 					{
 						print_progress(verbose, p, imax);
@@ -255,8 +255,8 @@ __global__ void find_num_caustic_crossings_kernel(Complex<T>* caustics, int nrow
 			if (threadIdx.x == 0 && threadIdx.y == 0)
 			{
 				unsigned long long int p = atomicAdd(percentage, 1);
-				unsigned long long int imax = ((nrows - 1) / blockDim.x + 1);
-				imax *= (((ncols - 1) - 1) / blockDim.y + 1);
+				unsigned long long int imax = (((ncols - 1) - 1) / blockDim.x + 1);
+				imax *= ((nrows - 1) / blockDim.y + 1);
 				if (p * 100 / imax > (p - 1) * 100 / imax)
 				{
 					print_progress(verbose, p, imax);
@@ -281,9 +281,9 @@ __global__ void reduce_pix_array_kernel(int* num, Complex<int> npixels)
 	int y_index = blockIdx.y * blockDim.y + threadIdx.y;
 	int y_stride = blockDim.y * gridDim.y;
 
-	for (int i = x_index; i < npixels.re; i += x_stride)
+	for (int j = y_index; j < npixels.im; j += y_stride)
 	{
-		for (int j = y_index; j < npixels.im; j += y_stride)
+		for (int i = x_index; i < npixels.re; i += x_stride)
 		{
 			int n1 = num[2 * j * 2 * npixels.re + 2 * i];
 			int n2 = num[2 * j * 2 * npixels.re + 2 * i + 1];
