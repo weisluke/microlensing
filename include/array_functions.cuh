@@ -73,9 +73,9 @@ __global__ void histogram_kernel(T* pixels, Complex<int> npixels, int hist_min, 
 	int y_index = blockIdx.y * blockDim.y + threadIdx.y;
 	int y_stride = blockDim.y * gridDim.y;
 
-	for (int i = x_index; i < npixels.re; i += x_stride)
+	for (int j = y_index; j < npixels.im; j += y_stride)
 	{
-		for (int j = y_index; j < npixels.im; j += y_stride)
+		for (int i = x_index; i < npixels.re; i += x_stride)
 		{
 			int index = std::round(1.0 * pixels[j * npixels.re + i] * factor - hist_min);
 			atomicAdd(&histogram[index], 1);
@@ -102,9 +102,9 @@ __global__ void log_histogram_kernel(T* pixels, Complex<int> npixels, int hist_m
 	int y_index = blockIdx.y * blockDim.y + threadIdx.y;
 	int y_stride = blockDim.y * gridDim.y;
 
-	for (int i = x_index; i < npixels.re; i += x_stride)
+	for (int j = y_index; j < npixels.im; j += y_stride)
 	{
-		for (int j = y_index; j < npixels.im; j += y_stride)
+		for (int i = x_index; i < npixels.re; i += x_stride)
 		{
 			int index = std::round(std::log10(pixels[j * npixels.re + i]) * factor - hist_min);
 			atomicAdd(&histogram[index], 1);

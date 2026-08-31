@@ -258,7 +258,7 @@ private:
 	bool calculate_num_caustic_crossings(int verbose)
 	{
 		set_threads(threads, 16, 16);
-		set_blocks(threads, blocks, num_rows, num_cols - 1);
+		set_blocks(threads, blocks, num_cols - 1, num_rows);
 
 		unsigned long long int* percentage = nullptr;
 		cudaMallocManaged(&percentage, sizeof(unsigned long long int));
