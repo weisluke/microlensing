@@ -482,6 +482,25 @@ namespace treenode
     }
 
     /******************************************************************************
+    set the expansion order of the nodes
+
+    \param nodes -- pointer to tree
+    \param numnodes -- number of nodes in the tree
+    \param expansion_order -- order of the multipole and local expansions
+    ******************************************************************************/
+    template <typename T>
+    __global__ void set_expansion_order_kernel(TreeNode<T>* nodes, int numnodes, int expansion_order)
+    {
+        int x_index = blockIdx.x * blockDim.x + threadIdx.x;
+        int x_stride = blockDim.x * gridDim.x;
+
+        for (int i = x_index; i < numnodes; i += x_stride)
+        {
+            nodes[i].expansion_order = expansion_order;
+        }
+    }
+
+    /******************************************************************************
     find the node nearest to a given position
 
     \param z -- position to find the nearest node to

@@ -670,13 +670,18 @@ protected:
 			return false;
 		}
 
+		/******************************************************************************
+		the tree is in managed memory: setting the nodes on the host would move every
+		page of the tree to the host and back
+		******************************************************************************/
 		for (int i = 0; i <= tree_levels; i++)
 		{
-			for (int j = 0; j < num_nodes[i]; j++)
-			{
-				tree[i][j].expansion_order = expansion_order;
-			}
+			threads = get_threads(treenode::set_expansion_order_kernel<T>, cuda_device_prop.maxThreadsPerBlock);
+			blocks = get_blocks(threads, num_nodes[i]);
+			treenode::set_expansion_order_kernel<T> <<<blocks, threads>>> (tree[i], num_nodes[i], expansion_order);
+			if (cuda_error("set_expansion_order_kernel", false, __FILE__, __LINE__)) return false;
 		}
+		if (cuda_error("set_expansion_order_kernel", true, __FILE__, __LINE__)) return false;
 
 		print_verbose("Calculating binomial coefficients...\n", verbose, 3);
 		calculate_binomial_coeffs(binomial_coeffs, 2 * expansion_order);
