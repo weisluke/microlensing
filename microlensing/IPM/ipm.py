@@ -2,8 +2,16 @@ from . import lib_ipm
 from . import lib_ipm_double
 from microlensing.Stars.stars import Stars
 
+import ctypes
 import numpy as np
 import matplotlib.axes
+
+
+_INPUT_NAMES = ("kappa_tot", "shear", "smooth_fraction", "kappa_star", "theta_star", "mass_function", "m_solar",
+                "m_lower", "m_upper", "light_loss", "rectangular", "approx", "safety_scale", "starfile",
+                "center_y1", "center_y2", "half_length_y1", "half_length_y2", "num_pixels_y1", "num_pixels_y2",
+                "num_rays_y", "random_seed", "write_stars", "write_maps", "write_parities", "write_histograms",
+                "outfile_prefix")
 
 
 class IPM(object):
@@ -49,12 +57,56 @@ class IPM(object):
         '''
         if is_double:
             self.lib = lib_ipm_double.lib
+            self._map_ctype, self._map_dtype = ctypes.c_double, np.float64
         else:
             self.lib = lib_ipm.lib
+            self._map_ctype, self._map_dtype = ctypes.c_float, np.float32
 
         self.obj = self.lib.IPM_init()
         self.verbose = verbose
 
+        self._host_only = False
+
+        self._apply_inputs(
+            kappa_tot=kappa_tot,
+            shear=shear,
+            smooth_fraction=smooth_fraction,
+            kappa_star=kappa_star,
+            theta_star=theta_star,
+            mass_function=mass_function,
+            m_solar=m_solar,
+            m_lower=m_lower,
+            m_upper=m_upper,
+            light_loss=light_loss,
+            rectangular=rectangular,
+            approx=approx,
+            safety_scale=safety_scale,
+            starfile=starfile,
+            center_y1=center_y1,
+            center_y2=center_y2,
+            half_length_y1=half_length_y1,
+            half_length_y2=half_length_y2,
+            num_pixels_y1=num_pixels_y1,
+            num_pixels_y2=num_pixels_y2,
+            num_rays_y=num_rays_y,
+            random_seed=random_seed,
+            write_stars=write_stars,
+            write_maps=write_maps,
+            write_parities=write_parities,
+            write_histograms=write_histograms,
+            outfile_prefix=outfile_prefix,
+        )
+
+    def _apply_inputs(self, kappa_tot: float = None, shear: float = None, smooth_fraction: float = None, kappa_star: float = None, 
+                      theta_star: float = None, mass_function: str = None, m_solar: float = None, m_lower: float = None, m_upper: float = None,
+                      light_loss: float = None, rectangular: bool = None, approx: bool = None, safety_scale: float = None,
+                      starfile: str = None, center_y1: float = None, center_y2: float = None, half_length_y1: float = None, half_length_y2: float = None,
+                      num_pixels_y1: int = None, num_pixels_y2: int = None, num_rays_y: int = None, random_seed: int = None,
+                      write_stars: bool = False, write_maps: bool = False, write_parities: bool = False, write_histograms: bool = False,
+                      outfile_prefix: str = None) -> None:
+        '''
+        Set the inputs on the underlying object. Takes the same parameters as __init__, except verbose and is_double
+        '''
         self.kappa_tot = kappa_tot
         self.shear = shear
 
@@ -411,25 +463,62 @@ class IPM(object):
     def run(self):
         if not self.lib.run(self.obj, self.verbose):
             raise Exception("Error running IPM")
-        
-        self.magnifications = np.ctypeslib.as_array(self.lib.get_pixels(self.obj), 
-                                                    shape=(self.num_pixels_y2,
-                                                           self.num_pixels_y1)).copy()
+
+        self._copy_maps(self.obj)
+        self._set_stars()
+        self._host_only = False
+
+    def _copy_maps(self, src_obj) -> None:
+        '''
+        Fill the magnification maps (and the parity maps, or None) from the object src_obj of this library
+        '''
+        shape = (self.num_pixels_y2, self.num_pixels_y1)
+        if getattr(self.lib, "copy_pixels", None) is None:
+            # a library without the copy exports (such as the Windows DLLs): copy the host map that get_pixels returns
+            def get_map(get_pixels):
+                return np.ctypeslib.as_array(get_pixels(src_obj), shape=shape).copy()
+            exports = (self.lib.get_pixels, self.lib.get_pixels_minima, self.lib.get_pixels_saddles)
+        else:
+            # copy each map from the device straight into a new array
+            def get_map(copy_pixels):
+                arr = np.empty(shape, dtype=self._map_dtype)
+                if not copy_pixels(src_obj, arr.ctypes.data_as(ctypes.POINTER(self._map_ctype))):
+                    raise Exception("Error copying magnification map")
+                return arr
+            exports = (self.lib.copy_pixels, self.lib.copy_pixels_minima, self.lib.copy_pixels_saddles)
+
+        self.magnifications = get_map(exports[0])
         if self.write_parities:
-            self.magnifications_minima = np.ctypeslib.as_array(self.lib.get_pixels_minima(self.obj), 
-                                                               shape=(self.num_pixels_y2,
-                                                                      self.num_pixels_y1)).copy()
-            self.magnifications_saddles = np.ctypeslib.as_array(self.lib.get_pixels_saddles(self.obj), 
-                                                                shape=(self.num_pixels_y2,
-                                                                       self.num_pixels_y1)).copy()
+            self.magnifications_minima = get_map(exports[1])
+            self.magnifications_saddles = get_map(exports[2])
         else:
             self.magnifications_minima = None
             self.magnifications_saddles = None
 
+    def _set_stars(self) -> None:
         self.stars = Stars(np.ctypeslib.as_array(self.lib.get_stars(self.obj),
                                                  shape=(self.num_stars, 3)).copy(),
                            self.rectangular, self.corner, self.theta_star)
         
+
+    @classmethod
+    def _from_worker(cls, worker: "IPM") -> "IPM":
+        '''
+        Make an IPM object holding numpy maps and stars, and no GPU memory, from a snapshot of a worker that has run
+        '''
+        snapshot = worker.lib.IPM_snapshot(worker.obj)
+        if not snapshot:
+            raise Exception("Error copying the IPM state")
+        res = cls.__new__(cls)
+        res.lib = worker.lib
+        res._map_ctype, res._map_dtype = worker._map_ctype, worker._map_dtype
+        res.verbose = worker.verbose
+        res.obj = snapshot
+        res._host_only = True
+        res._copy_maps(worker.obj)
+        res._set_stars()
+        return res
+
     @property
     def t_shoot_cells(self):
         return self.lib.get_t_shoot_cells(self.obj)
@@ -458,7 +547,23 @@ class IPM(object):
                           (self.center[1] + self.half_length[1])]])
     
     def save(self):
-        if not self.lib.save(self.obj, self.verbose):
+        if self._host_only:
+            shape = (self.num_pixels_y2, self.num_pixels_y1)
+            ptr_t = ctypes.POINTER(self._map_ctype)
+
+            def data_ptr(arr):
+                if arr is None:
+                    return None
+                if (not isinstance(arr, np.ndarray) or arr.dtype != self._map_dtype or arr.shape != shape
+                        or not arr.flags['C_CONTIGUOUS']):
+                    raise ValueError(f"maps must be C-contiguous numpy arrays of dtype {np.dtype(self._map_dtype)} and shape {shape}")
+                return arr.ctypes.data_as(ptr_t)
+
+            ok = self.lib.save_host(self.obj, data_ptr(self.magnifications), data_ptr(self.magnifications_minima),
+                                    data_ptr(self.magnifications_saddles), self.verbose)
+        else:
+            ok = self.lib.save(self.obj, self.verbose)
+        if not ok:
             raise Exception("Error saving IPM")
 
     def plot(self, ax: matplotlib.axes.Axes, cmap='viridis', plot_magnitudes=False, parity=None, **kwargs):

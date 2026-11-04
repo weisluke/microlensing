@@ -81,10 +81,76 @@ extern "C"
     LIB_EXPORT dtype* get_pixels(IPM<dtype> *self)                         {return self->get_pixels();}
     LIB_EXPORT dtype* get_pixels_minima(IPM<dtype> *self)                  {return self->get_pixels_minima();}
     LIB_EXPORT dtype* get_pixels_saddles(IPM<dtype> *self)                 {return self->get_pixels_saddles();}
+    LIB_EXPORT bool copy_pixels(IPM<dtype> *self, dtype* dst)              {return self->copy_pixels(dst);}
+    LIB_EXPORT bool copy_pixels_minima(IPM<dtype> *self, dtype* dst)       {return self->copy_pixels_minima(dst);}
+    LIB_EXPORT bool copy_pixels_saddles(IPM<dtype> *self, dtype* dst)      {return self->copy_pixels_saddles(dst);}
     LIB_EXPORT double get_t_shoot_cells(IPM<dtype> *self)                  {return self->get_t_shoot_cells();}
 
     LIB_EXPORT bool run(IPM<dtype> *self, int verbose)                     {return self->run(verbose);}
     LIB_EXPORT bool save(IPM<dtype> *self, int verbose)                    {return self->save(verbose);}
+
+    LIB_EXPORT bool set_worker(IPM<dtype> *self, int device)
+    {
+        int count = 0;
+        cudaGetDeviceCount(&count);
+        if (cuda_error("cudaGetDeviceCount", false, __FILE__, __LINE__)) return false;
+        if (device < 0 || device >= count) return false;
+        self->device = device;
+        self->reuse_memory = 1;
+        return self->create_stream();
+    }
+    LIB_EXPORT bool release_memory(IPM<dtype> *self)                       {return self->release_memory();}
+    LIB_EXPORT void reset_inputs(IPM<dtype> *self)                         {self->reset_inputs();}
+    LIB_EXPORT bool estimate_memory(IPM<dtype> *self, unsigned long long* out4)
+    {
+        return self->estimate_memory(out4[0], out4[1], out4[2], out4[3]);
+    }
+    LIB_EXPORT void get_allocated_bytes(IPM<dtype> *self, unsigned long long* out3)
+    {
+        self->allocated_bytes(out3[0], out3[1], out3[2]);
+    }
+    LIB_EXPORT int get_perimeter_deposit_used(IPM<dtype> *self)            {return self->get_perimeter_deposit_used();}
+    LIB_EXPORT IPM<dtype>* IPM_snapshot(IPM<dtype> *self)                  {return self->snapshot();}
+    LIB_EXPORT bool save_host(IPM<dtype> *self, dtype* pixels, dtype* minima, dtype* saddles, int verbose)
+    {
+        return self->save_host(pixels, minima, saddles, verbose);
+    }
+    //util.cuh already declares a C++ take_last_cuda_error, so the C symbol of that name is given to another function
+    #if defined(_WIN32) || defined(_WIN64)
+        #pragma comment(linker, "/export:take_last_cuda_error=export_take_last_cuda_error")
+        LIB_EXPORT int export_take_last_cuda_error()                       {return take_last_cuda_error();}
+    #else
+        LIB_EXPORT int export_take_last_cuda_error() __asm__("take_last_cuda_error");
+        LIB_EXPORT int export_take_last_cuda_error()                       {return take_last_cuda_error();}
+    #endif
+    LIB_EXPORT int get_device_count()
+    {
+        int count = 0;
+        if (cudaGetDeviceCount(&count) != cudaSuccess)
+        {
+            cudaGetLastError();
+            return 0;
+        }
+        return count;
+    }
+    LIB_EXPORT bool get_device_info(int device, unsigned long long* out2, int* concurrent_managed)
+    {
+        size_t free_bytes = 0;
+        size_t total_bytes = 0;
+        if (cudaSetDevice(device) != cudaSuccess) {cudaGetLastError(); return false;}
+        if (cudaMemGetInfo(&free_bytes, &total_bytes) != cudaSuccess) {cudaGetLastError(); return false;}
+        if (cudaDeviceGetAttribute(concurrent_managed, cudaDevAttrConcurrentManagedAccess, device) != cudaSuccess) {cudaGetLastError(); return false;}
+        out2[0] = free_bytes;
+        out2[1] = total_bytes;
+        return true;
+    }
+    LIB_EXPORT int check_device(int device)
+    {
+        cudaError_t err = cudaSetDevice(device);
+        if (err == cudaSuccess) err = cudaDeviceSynchronize();
+        if (err != cudaSuccess) cudaGetLastError();
+        return static_cast<int>(err);
+    }
 
     LIB_EXPORT void IPM_delete(IPM<dtype> *self)                           {delete self;}
 

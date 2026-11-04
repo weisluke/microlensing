@@ -133,8 +133,43 @@ lib.get_pixels_minima.argtypes = [ctypes.c_void_p]
 lib.get_pixels_minima.restype = ctypes.POINTER(ctypes.c_double)
 lib.get_pixels_saddles.argtypes = [ctypes.c_void_p]
 lib.get_pixels_saddles.restype = ctypes.POINTER(ctypes.c_double)
+# the copy exports are missing from libraries built before them (such as the Windows DLLs); ipm.py then uses get_pixels
+if hasattr(lib, "copy_pixels"):
+    lib.copy_pixels.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_double)]
+    lib.copy_pixels.restype = ctypes.c_bool
+    lib.copy_pixels_minima.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_double)]
+    lib.copy_pixels_minima.restype = ctypes.c_bool
+    lib.copy_pixels_saddles.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_double)]
+    lib.copy_pixels_saddles.restype = ctypes.c_bool
 lib.get_t_shoot_cells.argtypes = [ctypes.c_void_p]
 lib.get_t_shoot_cells.restype = ctypes.c_double
+
+# the worker exports are missing from libraries built before them (such as the Windows DLLs)
+if hasattr(lib, "set_worker"):
+    lib.set_worker.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    lib.set_worker.restype = ctypes.c_bool
+    lib.release_memory.argtypes = [ctypes.c_void_p]
+    lib.release_memory.restype = ctypes.c_bool
+    lib.reset_inputs.argtypes = [ctypes.c_void_p]
+    lib.reset_inputs.restype = None
+    lib.estimate_memory.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulonglong)]
+    lib.estimate_memory.restype = ctypes.c_bool
+    lib.get_allocated_bytes.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulonglong)]
+    lib.get_allocated_bytes.restype = None
+    lib.get_perimeter_deposit_used.argtypes = [ctypes.c_void_p]
+    lib.get_perimeter_deposit_used.restype = ctypes.c_int
+    lib.IPM_snapshot.argtypes = [ctypes.c_void_p]
+    lib.IPM_snapshot.restype = ctypes.c_void_p
+    lib.save_host.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double), ctypes.c_int]
+    lib.save_host.restype = ctypes.c_bool
+    lib.take_last_cuda_error.argtypes = []
+    lib.take_last_cuda_error.restype = ctypes.c_int
+    lib.get_device_count.argtypes = []
+    lib.get_device_count.restype = ctypes.c_int
+    lib.get_device_info.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_ulonglong), ctypes.POINTER(ctypes.c_int)]
+    lib.get_device_info.restype = ctypes.c_bool
+    lib.check_device.argtypes = [ctypes.c_int]
+    lib.check_device.restype = ctypes.c_int
 
 lib.run.argtypes = [ctypes.c_void_p, ctypes.c_int]
 lib.run.restype = ctypes.c_bool
