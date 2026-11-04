@@ -55,6 +55,14 @@ public:
     Complex<T> multipole_coeffs[treenode::MAX_EXPANSION_ORDER + 1];
     Complex<T> local_coeffs[treenode::MAX_EXPANSION_ORDER + 1];
 
+    /******************************************************************************
+    filled by ipm_leaf::build_leaf_records: index of this node in the compact leaf
+    arrays used by the shooting kernel (-1 if the node is not a leaf), and the
+    start of its contiguous list of direct (node + neighbour) stars
+    ******************************************************************************/
+    int leaf_index;
+    int direct_begin;
+
 
     /******************************************************************************
 	default constructor
@@ -96,6 +104,9 @@ public:
             multipole_coeffs[i] = Complex<T>();
             local_coeffs[i] = Complex<T>();
         }
+
+        leaf_index = -1;
+        direct_begin = 0;
 	}
     
     /******************************************************************************
@@ -137,6 +148,9 @@ public:
             multipole_coeffs[i] = n.multipole_coeffs[i];
             local_coeffs[i] = n.local_coeffs[i];
         }
+
+        leaf_index = n.leaf_index;
+        direct_begin = n.direct_begin;
 
 		return *this;
 	}
@@ -368,14 +382,12 @@ namespace treenode
             TreeNode<T>* node = &nodes[j];
 
             /******************************************************************************
-            if node is empty or has no children, skip it
+            if node is empty or has no children there is nothing to sort. not a
+            "continue": all threads of the block must reach the __syncthreads below
             ******************************************************************************/
-            if (node->numstars == 0 || node->num_children == 0)
-            {
-                continue;
-            }
+            const bool active = !(node->numstars == 0 || node->num_children == 0);
 
-            if (threadIdx.x == 0)
+            if (active && threadIdx.x == 0)
             {
                 n_stars_top[threadIdx.y] = 0;
                 n_stars_bottom[threadIdx.y] = 0;
@@ -390,7 +402,7 @@ namespace treenode
             each thread is a star within the parent node in the x direction
             in the first pass, figure out whether the star is above or below the center
             ******************************************************************************/
-            for (int i = threadIdx.x; i < node->numstars; i += blockDim.x)
+            for (int i = threadIdx.x; active && i < node->numstars; i += blockDim.x)
             {
                 if (stars[node->stars + i].position.im >= node->center.im)
                 {
@@ -410,7 +422,7 @@ namespace treenode
             /******************************************************************************
             in the second pass, figure out whether the star is left or right of the center
             ******************************************************************************/
-            for (int i = threadIdx.x; i < node->numstars; i += blockDim.x)
+            for (int i = threadIdx.x; active && i < node->numstars; i += blockDim.x)
             {
                 /******************************************************************************
                 if the star was in the top, then sort left and right
@@ -447,7 +459,7 @@ namespace treenode
             once the sorting is done, assign the starting position of stars to the children
             along with the number of stars
             ******************************************************************************/
-            if (threadIdx.x == 0)
+            if (active && threadIdx.x == 0)
             {
                 node->children[0]->stars = node->stars;
                 node->children[0]->numstars = n_stars_children[threadIdx.y * treenode::MAX_NUM_CHILDREN + 0];

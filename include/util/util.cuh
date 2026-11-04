@@ -184,6 +184,26 @@ bool cuda_error(const char* name, bool sync, const char* file, const int line)
 }
 
 /******************************************************************************
+get the properties of the current cuda device, queried once per device
+
+\return reference to the device properties
+******************************************************************************/
+const cudaDeviceProp& cached_device_prop()
+{
+	//cudaGetDeviceProperties costs ~0.5-1 ms; the tree/FMM loops called it hundreds of times
+	static cudaDeviceProp prop;
+	static int cached_device = -1;
+	int device;
+	cudaGetDevice(&device);
+	if (device != cached_device)
+	{
+		cudaGetDeviceProperties(&prop, device);
+		cached_device = device;
+	}
+	return prop;
+}
+
+/******************************************************************************
 get the maximum number of threads allowed per block for a kernel
 
 \param kernel -- kernel we want the maximum number of threads for
@@ -269,10 +289,7 @@ threads
 ******************************************************************************/
 dim3 get_blocks(dim3 threads, int x = 1, int y = 1, int z = 1)
 {
-	int device;
-	cudaGetDevice(&device);
-	cudaDeviceProp prop;
-	cudaGetDeviceProperties(&prop, device);
+	const cudaDeviceProp& prop = cached_device_prop();
 
 	dim3 blocks(
 		(x - 1) / threads.x + 1,

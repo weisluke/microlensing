@@ -2,6 +2,7 @@ from . import lib_ipm
 from . import lib_ipm_double
 from microlensing.Stars.stars import Stars
 
+import ctypes
 import numpy as np
 import matplotlib.axes
 
@@ -49,8 +50,10 @@ class IPM(object):
         '''
         if is_double:
             self.lib = lib_ipm_double.lib
+            self._map_ctype, self._map_dtype = ctypes.c_double, np.float64
         else:
             self.lib = lib_ipm.lib
+            self._map_ctype, self._map_dtype = ctypes.c_float, np.float32
 
         self.obj = self.lib.IPM_init()
         self.verbose = verbose
@@ -411,17 +414,26 @@ class IPM(object):
     def run(self):
         if not self.lib.run(self.obj, self.verbose):
             raise Exception("Error running IPM")
-        
-        self.magnifications = np.ctypeslib.as_array(self.lib.get_pixels(self.obj), 
-                                                    shape=(self.num_pixels_y2,
-                                                           self.num_pixels_y1)).copy()
+
+        shape = (self.num_pixels_y2, self.num_pixels_y1)
+        if getattr(self.lib, "copy_pixels", None) is None:
+            # a library without the copy exports (such as the Windows DLLs): copy the host map that get_pixels returns
+            def get_map(get_pixels):
+                return np.ctypeslib.as_array(get_pixels(self.obj), shape=shape).copy()
+            exports = (self.lib.get_pixels, self.lib.get_pixels_minima, self.lib.get_pixels_saddles)
+        else:
+            # copy each map from the device straight into a new array
+            def get_map(copy_pixels):
+                arr = np.empty(shape, dtype=self._map_dtype)
+                if not copy_pixels(self.obj, arr.ctypes.data_as(ctypes.POINTER(self._map_ctype))):
+                    raise Exception("Error copying magnification map")
+                return arr
+            exports = (self.lib.copy_pixels, self.lib.copy_pixels_minima, self.lib.copy_pixels_saddles)
+
+        self.magnifications = get_map(exports[0])
         if self.write_parities:
-            self.magnifications_minima = np.ctypeslib.as_array(self.lib.get_pixels_minima(self.obj), 
-                                                               shape=(self.num_pixels_y2,
-                                                                      self.num_pixels_y1)).copy()
-            self.magnifications_saddles = np.ctypeslib.as_array(self.lib.get_pixels_saddles(self.obj), 
-                                                                shape=(self.num_pixels_y2,
-                                                                       self.num_pixels_y1)).copy()
+            self.magnifications_minima = get_map(exports[1])
+            self.magnifications_saddles = get_map(exports[2])
         else:
             self.magnifications_minima = None
             self.magnifications_saddles = None

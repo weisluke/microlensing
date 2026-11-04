@@ -2,14 +2,17 @@
 
 #include "array_functions.cuh"
 #include "complex.cuh"
-#include "ipm_functions.cuh"
+#include "device_array_io.cuh"
+#include "ipm_functions_fast.cuh"
+#include "ipm_leaf.cuh"
 #include "microlensing.cuh"
 #include "star.cuh"
 #include "stopwatch.hpp"
 #include "util/util.cuh"
 
+#include <thrust/device_ptr.h> //for thrust::device_ptr
 #include <thrust/execution_policy.h> //for thrust::device
-#include <thrust/extrema.h> //for thrust::min_element, thrust::max_element
+#include <thrust/extrema.h> //for thrust::minmax_element
 #include <thrust/fill.h> //for thrust::fill
 #include <thrust/functional.h> //for thrust::plus
 #include <thrust/transform.h> //for thrust::transform
@@ -19,8 +22,10 @@
 #include <fstream> //for writing files
 #include <iostream>
 #include <limits> //for std::numeric_limits
+#include <new> //for std::nothrow
 #include <numbers>
 #include <string>
+#include <vector>
 
 
 template <typename T>
@@ -57,6 +62,13 @@ public:
 	int write_parities = 0;
 	int write_histograms = 1;
 
+	/******************************************************************************
+	test-only hook: when set, every triangle takes the direct deposit, as when the
+	step buffers of the perimeter deposit do not fit. not reachable from the
+	command line or the Python wrapper; tests/gpu/ipm_force_direct.cu sets it
+	******************************************************************************/
+	static inline bool testing_force_direct_deposit = false;
+
 
 private:
 	//must include microlensing variables to put them into scope since class is a template
@@ -65,6 +77,7 @@ private:
 	using Microlensing<T>::MAX_TAYLOR_SMOOTH;
 	using Microlensing<T>::threads;
 	using Microlensing<T>::blocks;
+	using Microlensing<T>::cuda_device_prop;
 	using Microlensing<T>::mean_mass;
 	using Microlensing<T>::mean_mass2;
 	using Microlensing<T>::mean_mass2_ln_mass;
@@ -82,6 +95,7 @@ private:
 	using Microlensing<T>::root_half_length;
 	using Microlensing<T>::tree_levels;
 	using Microlensing<T>::tree;
+	using Microlensing<T>::num_nodes;
 	using Microlensing<T>::stars;
 
 	/******************************************************************************
@@ -102,12 +116,53 @@ private:
 	Complex<int> num_ray_threads; //number of threads in x1 and x2 directions
 
 	/******************************************************************************
-	dynamic memory
+	precision of the pixel-allocation arithmetic: the map precision. single
+	precision would suffice for the origin-shifted coordinates in the float build,
+	but in the double build it changes the maps beyond their rounding floor
 	******************************************************************************/
-	T* pixels = nullptr;
-	T* pixels_minima = nullptr;
-	T* pixels_saddles = nullptr;
+	using pixel_arith_t = T;
 
+	/******************************************************************************
+	dynamic memory
+	the maps live in plain device memory (cudaMalloc) for the life of the object;
+	run() does not copy them to the host. save() streams the maps to their files
+	through one pair of small pinned buffers (a DeviceArrayWriter), and copy_pixels*()
+	copy a map straight into a caller's buffer (the Python wrapper passes its
+	numpy arrays). get_pixels*() fill a host copy (new T[]) on their first call
+	and return it afterwards; clear_memory() frees the copies, and run() calls
+	clear_memory() first, so a copy never outlives the map it was made from.
+	this replaces cudaMallocManaged, whose fault-driven migrations cost more than
+	the shooting for large maps, and the pinned host copy of every map that
+	replaced it in turn
+	******************************************************************************/
+	T* d_pixels = nullptr;        //device
+	T* d_pixels_minima = nullptr; //device
+	T* d_pixels_saddles = nullptr; //device
+	T* h_pixels = nullptr;         //host copy for get_pixels(), made on its first call
+	T* h_pixels_minima = nullptr;  //host copy for get_pixels_minima(), made on its first call
+	T* h_pixels_saddles = nullptr; //host copy for get_pixels_saddles(), made on its first call
+
+	/******************************************************************************
+	step buffer of the perimeter deposit and the clamp statistics of its row sums
+	(device; allocated and freed within shoot_cells)
+	******************************************************************************/
+	T* d_steps = nullptr;
+	unsigned long long* d_clamp_count = nullptr;
+	double* d_clamp_total = nullptr;
+
+	/******************************************************************************
+	compact tree for the shooting kernel (device)
+	******************************************************************************/
+	ipm_leaf::LeafRecord<T>* leaves = nullptr;
+	T* leaf_coef_re = nullptr;
+	T* leaf_coef_im = nullptr;
+	ipm_leaf::StarXYM<T>* direct_stars = nullptr;
+	int num_leaves = 0;
+	int num_direct = 0;
+
+	/******************************************************************************
+	histograms (device; copied to the host by write_files)
+	******************************************************************************/
 	int min_mag;
 	int max_mag;
 	int histogram_length;
@@ -124,6 +179,23 @@ private:
 
 
 
+	bool free_step_buffers(bool return_on_error = true)
+	{
+		cudaFree(d_steps);
+		if (return_on_error && cuda_error("cudaFree(*d_steps)", false, __FILE__, __LINE__)) return false;
+		d_steps = nullptr;
+
+		cudaFree(d_clamp_count);
+		if (return_on_error && cuda_error("cudaFree(*d_clamp_count)", false, __FILE__, __LINE__)) return false;
+		d_clamp_count = nullptr;
+
+		cudaFree(d_clamp_total);
+		if (return_on_error && cuda_error("cudaFree(*d_clamp_total)", false, __FILE__, __LINE__)) return false;
+		d_clamp_total = nullptr;
+
+		return true;
+	}
+
 	//optional return or not, so memory can be cleared in destructor without error checking
 	bool clear_memory(int verbose, bool return_on_error = true)
 	{
@@ -131,21 +203,48 @@ private:
 		
 		/******************************************************************************
 		free memory and set variables to nullptr
+		the host copies go first: freeing them cannot fail, so even a run() whose
+		clear_memory() fails leaves no stale copy for get_pixels*() to return
 		******************************************************************************/
+
+		delete[] h_pixels;
+		h_pixels = nullptr;
+		delete[] h_pixels_minima;
+		h_pixels_minima = nullptr;
+		delete[] h_pixels_saddles;
+		h_pixels_saddles = nullptr;
 
 		if (!Microlensing<T>::clear_memory(verbose, return_on_error)) return false;
 
-		cudaFree(pixels);
-		if (return_on_error && cuda_error("cudaFree(*pixels)", false, __FILE__, __LINE__)) return false;
-		pixels = nullptr;
-		
-		cudaFree(pixels_minima);
-		if (return_on_error && cuda_error("cudaFree(*pixels_minima)", false, __FILE__, __LINE__)) return false;
-		pixels_minima = nullptr;
-		
-		cudaFree(pixels_saddles);
-		if (return_on_error && cuda_error("cudaFree(*pixels_saddles)", false, __FILE__, __LINE__)) return false;
-		pixels_saddles = nullptr;
+		cudaFree(d_pixels);
+		if (return_on_error && cuda_error("cudaFree(*d_pixels)", false, __FILE__, __LINE__)) return false;
+		d_pixels = nullptr;
+
+		cudaFree(d_pixels_minima);
+		if (return_on_error && cuda_error("cudaFree(*d_pixels_minima)", false, __FILE__, __LINE__)) return false;
+		d_pixels_minima = nullptr;
+
+		cudaFree(d_pixels_saddles);
+		if (return_on_error && cuda_error("cudaFree(*d_pixels_saddles)", false, __FILE__, __LINE__)) return false;
+		d_pixels_saddles = nullptr;
+
+		if (!free_step_buffers(return_on_error)) return false;
+
+		cudaFree(leaves);
+		if (return_on_error && cuda_error("cudaFree(*leaves)", false, __FILE__, __LINE__)) return false;
+		leaves = nullptr;
+
+		cudaFree(leaf_coef_re);
+		if (return_on_error && cuda_error("cudaFree(*leaf_coef_re)", false, __FILE__, __LINE__)) return false;
+		leaf_coef_re = nullptr;
+
+		cudaFree(leaf_coef_im);
+		if (return_on_error && cuda_error("cudaFree(*leaf_coef_im)", false, __FILE__, __LINE__)) return false;
+		leaf_coef_im = nullptr;
+
+		cudaFree(direct_stars);
+		if (return_on_error && cuda_error("cudaFree(*direct_stars)", false, __FILE__, __LINE__)) return false;
+		direct_stars = nullptr;
 		
 		cudaFree(histogram);
 		if (return_on_error && cuda_error("cudaFree(*histogram)", false, __FILE__, __LINE__)) return false;
@@ -243,7 +342,7 @@ private:
 		number density of rays in the lens plane
 		******************************************************************************/
 		set_param("num_rays_x", num_rays_x,
-			1.0 * num_rays_y * num_pixels_y.re * num_pixels_y.im / (2 * half_length_y.re * 2 * half_length_y.im),
+			1.0 * num_rays_y * (1ULL * num_pixels_y.re * num_pixels_y.im) / (2 * half_length_y.re * 2 * half_length_y.im),
 			verbose);
 
 		/******************************************************************************
@@ -355,7 +454,7 @@ private:
 			taylor_smooth += 2;
 		}
 		set_param("taylor_smooth", taylor_smooth, taylor_smooth, verbose);
-		if (rectangular && taylor_smooth > MAX_TAYLOR_SMOOTH)
+		if (rectangular && approx && taylor_smooth > MAX_TAYLOR_SMOOTH)
 		{
 			std::cerr << "Error. taylor_smooth must be <= " << MAX_TAYLOR_SMOOTH << "\n";
 			return false;
@@ -375,16 +474,17 @@ private:
 		if (!Microlensing<T>::allocate_initialize_memory(verbose)) return false;
 
 		/******************************************************************************
-		allocate memory for pixels
+		allocate memory for pixels (device only, see dynamic memory above)
 		******************************************************************************/
-		cudaMallocManaged(&pixels, num_pixels_y.re * num_pixels_y.im * sizeof(T));
-		if (cuda_error("cudaMallocManaged(*pixels)", false, __FILE__, __LINE__)) return false;
+		const size_t pixel_bytes = (1ULL * num_pixels_y.re * num_pixels_y.im) * sizeof(T);
+		cudaMalloc(&d_pixels, pixel_bytes);
+		if (cuda_error("cudaMalloc(*d_pixels)", false, __FILE__, __LINE__)) return false;
 		if (write_parities)
 		{
-			cudaMallocManaged(&pixels_minima, num_pixels_y.re * num_pixels_y.im * sizeof(T));
-			if (cuda_error("cudaMallocManaged(*pixels_minima)", false, __FILE__, __LINE__)) return false;
-			cudaMallocManaged(&pixels_saddles, num_pixels_y.re * num_pixels_y.im * sizeof(T));
-			if (cuda_error("cudaMallocManaged(*pixels_saddles)", false, __FILE__, __LINE__)) return false;
+			cudaMalloc(&d_pixels_minima, pixel_bytes);
+			if (cuda_error("cudaMalloc(*d_pixels_minima)", false, __FILE__, __LINE__)) return false;
+			cudaMalloc(&d_pixels_saddles, pixel_bytes);
+			if (cuda_error("cudaMalloc(*d_pixels_saddles)", false, __FILE__, __LINE__)) return false;
 		}
 
 		t_elapsed = stopwatch.stop();
@@ -397,11 +497,14 @@ private:
 		print_verbose("Initializing array values...\n", verbose, 3);
 		stopwatch.start();
 
-		thrust::fill(thrust::device, pixels, pixels + num_pixels_y.re * num_pixels_y.im, 0);
+		cudaMemset(d_pixels, 0, pixel_bytes);
+		if (cuda_error("cudaMemset(*d_pixels)", false, __FILE__, __LINE__)) return false;
 		if (write_parities)
 		{
-			thrust::fill(thrust::device, pixels_minima, pixels_minima + num_pixels_y.re * num_pixels_y.im, 0);
-			thrust::fill(thrust::device, pixels_saddles, pixels_saddles + num_pixels_y.re * num_pixels_y.im, 0);
+			cudaMemset(d_pixels_minima, 0, pixel_bytes);
+			if (cuda_error("cudaMemset(*d_pixels_minima)", false, __FILE__, __LINE__)) return false;
+			cudaMemset(d_pixels_saddles, 0, pixel_bytes);
+			if (cuda_error("cudaMemset(*d_pixels_saddles)", false, __FILE__, __LINE__)) return false;
 		}
 
 		t_elapsed = stopwatch.stop();
@@ -410,41 +513,181 @@ private:
 		return true;
 	}
 
+	bool build_compact_tree(int verbose)
+	{
+		print_verbose("Building compact leaf records...\n", verbose, 2);
+		stopwatch.start();
+		if (!ipm_leaf::build_leaf_records<T>(tree, num_nodes, stars, expansion_order,
+			leaves, leaf_coef_re, leaf_coef_im, direct_stars, num_leaves, num_direct, verbose)) return false;
+		t_elapsed = stopwatch.stop();
+		print_verbose("Done building compact leaf records. Elapsed time: " << t_elapsed << " seconds.\n", verbose, 2);
+		return true;
+	}
+
 	bool shoot_cells(int verbose)
 	{
-		unsigned long long int* percentage = nullptr;
-		cudaMallocManaged(&percentage, sizeof(unsigned long long int));
-		if (cuda_error("cudaMallocManaged(*percentage)", false, __FILE__, __LINE__)) return false;
+		/******************************************************************************
+		one block per TILE x TILE tile of cells; launch as many blocks as the device
+		can keep resident (occupancy API), not one per SM as get_blocks() does, so
+		the latency of the tree walk, star loads and atomics can be hidden
+		******************************************************************************/
+		const int tiles_x = (num_ray_threads.re + ipm_fast::TILE - 1) / ipm_fast::TILE;
+		const int tiles_y = (num_ray_threads.im + ipm_fast::TILE - 1) / ipm_fast::TILE;
+		const long long num_tiles = 1LL * tiles_x * tiles_y;
 
-		*percentage = 1;
+		int blocks_per_sm = 0;
+		cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks_per_sm, ipm_fast::shoot_cells_tiled_kernel<T, pixel_arith_t>, ipm_fast::TILE * ipm_fast::TILE, 0);
+		if (cuda_error("cudaOccupancyMaxActiveBlocksPerMultiprocessor", false, __FILE__, __LINE__)) return false;
+		if (blocks_per_sm < 1) blocks_per_sm = 1;
+		long long grid = 1LL * blocks_per_sm * cuda_device_prop.multiProcessorCount;
+		if (grid > num_tiles) grid = num_tiles;
+		print_verbose("Shooting " << num_tiles << " tiles of " << ipm_fast::TILE << "x" << ipm_fast::TILE << " cells with " << grid
+			<< " blocks (" << blocks_per_sm << " resident blocks per SM)\n", verbose, 2);
+
+		unsigned long long int* percentage = nullptr;
+		const unsigned long long int percentage_start = 1;
+		cudaMalloc(&percentage, sizeof(unsigned long long int));
+		if (cuda_error("cudaMalloc(*percentage)", false, __FILE__, __LINE__)) return false;
+		cudaMemcpy(percentage, &percentage_start, sizeof(unsigned long long int), cudaMemcpyHostToDevice);
+		if (cuda_error("cudaMemcpy(*percentage)", false, __FILE__, __LINE__)) return false;
+
+		ipm_fast::SmoothConst<T> smooth_const = ipm_fast::make_smooth_const<T>(corner);
 
 		/******************************************************************************
-		shoot rays and calculate time taken in seconds
+		step buffers of the perimeter deposit (see tri_cov::allocate_triangle):
+		triangles whose clamped bounding box has more than EDGE_MIN_BBOX pixels
+		deposit values along their edges into the map and steps into a step buffer
+		of the map's size; after the kernel the row-wise prefix sum of the steps is
+		added to the map. the steps follow the triangle's parity. with parities the
+		total map d_pixels is not written before minima + saddles are summed below,
+		and that sum overwrites it, so d_pixels holds the minima's steps and one
+		extra buffer suffices with or without parities.
+
+		if the buffer does not fit into free device memory with a margin, every
+		triangle takes the direct deposit. both deposits are exact, so the map is
+		the same up to rounding either way
+		******************************************************************************/
+		constexpr size_t MiB = 1ULL << 20;
+		const size_t pixel_bytes = (1ULL * num_pixels_y.re * num_pixels_y.im) * sizeof(T);
+		const int num_step_buffers = 1; //with parities, d_pixels is the second
+		long long edge_min_bbox = LLONG_MAX;
+		T* steps_min = nullptr;
+		T* steps_sad = nullptr;
+		T* steps = nullptr;
+		if (testing_force_direct_deposit)
+		{
+			print_verbose("Perimeter deposit disabled for testing.\n", verbose, 2);
+		}
+		else
+		{
+			size_t free_bytes = 0;
+			size_t total_bytes = 0;
+			cudaMemGetInfo(&free_bytes, &total_bytes);
+			if (cuda_error("cudaMemGetInfo", false, __FILE__, __LINE__)) return false;
+			const size_t need = num_step_buffers * pixel_bytes + 64 * MiB;
+			bool fits = need <= free_bytes;
+			if (fits)
+			{
+				//another process can take the memory after the check: a failed allocation also falls back
+				if (cudaMalloc(&d_steps, pixel_bytes) == cudaErrorMemoryAllocation)
+				{
+					cudaGetLastError(); //clears the (not sticky) allocation error
+					d_steps = nullptr;
+					fits = false;
+				}
+				else if (cuda_error("cudaMalloc(*d_steps)", false, __FILE__, __LINE__)) return false;
+			}
+			if (!fits)
+			{
+				print_verbose("Perimeter deposit disabled: step buffers need " << (need + MiB - 1) / MiB << " MiB, "
+					<< free_bytes / MiB << " MiB free.\n", verbose, 2);
+			}
+			else
+			{
+				cudaMalloc(&d_clamp_count, sizeof(unsigned long long));
+				if (cuda_error("cudaMalloc(*d_clamp_count)", false, __FILE__, __LINE__)) return false;
+				cudaMalloc(&d_clamp_total, sizeof(double));
+				if (cuda_error("cudaMalloc(*d_clamp_total)", false, __FILE__, __LINE__)) return false;
+				cudaMemset(d_clamp_count, 0, sizeof(unsigned long long));
+				if (cuda_error("cudaMemset(*d_clamp_count)", false, __FILE__, __LINE__)) return false;
+				cudaMemset(d_clamp_total, 0, sizeof(double));
+				if (cuda_error("cudaMemset(*d_clamp_total)", false, __FILE__, __LINE__)) return false;
+				cudaMemset(d_steps, 0, pixel_bytes);
+				if (cuda_error("cudaMemset(*d_steps)", false, __FILE__, __LINE__)) return false;
+				if (write_parities)
+				{
+					cudaMemset(d_pixels, 0, pixel_bytes);
+					if (cuda_error("cudaMemset(*d_pixels)", false, __FILE__, __LINE__)) return false;
+					steps_min = d_pixels;
+					steps_sad = d_steps;
+				}
+				else
+				{
+					steps = d_steps;
+				}
+				//the memsets must not run into the timed region
+				if (cuda_error("cudaDeviceSynchronize", true, __FILE__, __LINE__)) return false;
+				edge_min_bbox = ipm_fast::EDGE_MIN_BBOX;
+				print_verbose("Perimeter deposit for bounding boxes above " << ipm_fast::EDGE_MIN_BBOX << " pixels.\n", verbose, 2);
+			}
+		}
+
+		/******************************************************************************
+		shoot rays and calculate time taken in seconds (including the row sums of
+		the perimeter deposit)
 		******************************************************************************/
 		print_verbose("Shooting cells...\n", verbose, 1);
 		stopwatch.start();
-		threads = get_threads(shoot_cells_kernel<T>, num_ray_threads.re, num_ray_threads.im);
-		blocks = get_blocks(threads, num_ray_threads.re, num_ray_threads.im);
-		shoot_cells_kernel<T> <<<blocks, threads>>> (kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
-			rectangular, corner, approx, taylor_smooth, ray_half_sep, num_ray_threads, center_x, half_length_x,
-			center_y, half_length_y, pixels_minima, pixels_saddles, pixels, num_pixels_y, percentage, verbose);
-		if (cuda_error("shoot_rays_kernel", true, __FILE__, __LINE__)) return false;
+		ipm_fast::shoot_cells_tiled_kernel<T, pixel_arith_t> <<<static_cast<unsigned int>(grid), dim3(ipm_fast::TILE, ipm_fast::TILE)>>> (
+			kappa_tot, shear, theta_star, stars, kappa_star, tree[0],
+			leaves, leaf_coef_re, leaf_coef_im, expansion_order + 1, direct_stars,
+			rectangular, corner, approx, taylor_smooth, smooth_const,
+			ray_half_sep, num_ray_threads, center_x, half_length_x,
+			center_y, half_length_y, d_pixels_minima, d_pixels_saddles, d_pixels, num_pixels_y,
+			steps_min, steps_sad, steps, edge_min_bbox, percentage, verbose);
+		if (cuda_error("shoot_cells_tiled_kernel", true, __FILE__, __LINE__)) return false;
+		if (d_steps != nullptr)
+		{
+			const unsigned int row_blocks = static_cast<unsigned int>(
+				(1LL * num_pixels_y.im * 32 + ipm_fast::ROW_PREFIX_BLOCK - 1) / ipm_fast::ROW_PREFIX_BLOCK); //one warp per row
+			if (write_parities)
+			{
+				ipm_fast::add_row_prefix_kernel<T> <<<row_blocks, ipm_fast::ROW_PREFIX_BLOCK>>> (d_pixels_minima, steps_min, num_pixels_y, d_clamp_count, d_clamp_total);
+				if (cuda_error("add_row_prefix_kernel", false, __FILE__, __LINE__)) return false;
+				ipm_fast::add_row_prefix_kernel<T> <<<row_blocks, ipm_fast::ROW_PREFIX_BLOCK>>> (d_pixels_saddles, steps_sad, num_pixels_y, d_clamp_count, d_clamp_total);
+			}
+			else
+			{
+				ipm_fast::add_row_prefix_kernel<T> <<<row_blocks, ipm_fast::ROW_PREFIX_BLOCK>>> (d_pixels, steps, num_pixels_y, d_clamp_count, d_clamp_total);
+			}
+			if (cuda_error("add_row_prefix_kernel", true, __FILE__, __LINE__)) return false;
+		}
 		t_shoot_cells = stopwatch.stop();
 		print_verbose("\nDone shooting cells. Elapsed time: " << t_shoot_cells << " seconds.\n", verbose, 1);
 
+		if (d_steps != nullptr)
+		{
+			unsigned long long n_clamped = 0;
+			double clamped_total = 0;
+			cudaMemcpy(&n_clamped, d_clamp_count, sizeof(unsigned long long), cudaMemcpyDeviceToHost);
+			if (cuda_error("cudaMemcpy(*d_clamp_count)", false, __FILE__, __LINE__)) return false;
+			cudaMemcpy(&clamped_total, d_clamp_total, sizeof(double), cudaMemcpyDeviceToHost);
+			if (cuda_error("cudaMemcpy(*d_clamp_total)", false, __FILE__, __LINE__)) return false;
+			if (!free_step_buffers()) return false;
+			print_verbose("Row sums clamped " << n_clamped << " pixels, total " << clamped_total << ".\n", verbose, 2);
+		}
 
 		cudaFree(percentage);
 		if (cuda_error("cudaFree(*percentage)", false, __FILE__, __LINE__)) return false;
 		percentage = nullptr;
 
-
 		if (write_parities)
 		{
 			print_verbose("Adding arrays...\n", verbose, 2);
-			thrust::transform(thrust::device, 
-							  pixels_minima, pixels_minima + num_pixels_y.re * num_pixels_y.im, 
-							  pixels_saddles, 
-							  pixels, 
+			thrust::transform(thrust::device,
+							  thrust::device_pointer_cast(d_pixels_minima), thrust::device_pointer_cast(d_pixels_minima) + (1ULL * num_pixels_y.re * num_pixels_y.im),
+							  thrust::device_pointer_cast(d_pixels_saddles),
+							  thrust::device_pointer_cast(d_pixels),
 							  thrust::plus<T>());
 			print_verbose("Done adding arrays.\n", verbose, 2);
 		}
@@ -473,9 +716,23 @@ private:
 
 			/******************************************************************************
 			histogram of mu
+			one fused min/max pass per array (device memory, so go through
+			thrust::device_ptr; dereferencing copies the value to the host)
 			******************************************************************************/
-			min_mag = std::round(*thrust::min_element(thrust::device, pixels, pixels + num_pixels_y.re * num_pixels_y.im) * factor);
-			max_mag = std::round(*thrust::max_element(thrust::device, pixels, pixels + num_pixels_y.re * num_pixels_y.im) * factor);
+			const size_t npix_total = 1ULL * num_pixels_y.re * num_pixels_y.im;
+			auto minmax = [&](T* d_arr, T& lo, T& hi)
+			{
+				thrust::device_ptr<T> dp = thrust::device_pointer_cast(d_arr);
+				auto mm = thrust::minmax_element(thrust::device, dp, dp + npix_total);
+				lo = *mm.first;
+				hi = *mm.second;
+			};
+			T lo_all, hi_all;
+			minmax(d_pixels, lo_all, hi_all);
+			min_mag = std::round(lo_all * factor);
+			max_mag = std::round(hi_all * factor);
+			min_log_mag = std::round(std::log10(lo_all) * factor);
+			max_log_mag = std::round(std::log10(hi_all) * factor);
 
 			T mu_min_theory = 1 / ((1 - kappa_tot + kappa_star) * (1 - kappa_tot + kappa_star));
 			T mu_min_actual = 1.0 * min_mag / factor;
@@ -491,8 +748,11 @@ private:
 
 			if (write_parities)
 			{
-				int min_mag_minima = std::round(*thrust::min_element(thrust::device, pixels_minima, pixels_minima + num_pixels_y.re * num_pixels_y.im) * factor);
-				int max_mag_minima = std::round(*thrust::max_element(thrust::device, pixels_minima, pixels_minima + num_pixels_y.re * num_pixels_y.im) * factor);
+				T lo_min, hi_min, lo_sad, hi_sad;
+				minmax(d_pixels_minima, lo_min, hi_min);
+				minmax(d_pixels_saddles, lo_sad, hi_sad);
+				int min_mag_minima = std::round(lo_min * factor);
+				int max_mag_minima = std::round(hi_min * factor);
 
 				mu_min_actual = 1.0 * min_mag_minima / factor;
 
@@ -505,23 +765,31 @@ private:
 					print_verbose("\n", verbose * (verbose < 2), 1);
 				}
 
-				int min_mag_saddles = std::round(*thrust::min_element(thrust::device, pixels_saddles, pixels_saddles + num_pixels_y.re * num_pixels_y.im) * factor);
-				int max_mag_saddles = std::round(*thrust::max_element(thrust::device, pixels_saddles, pixels_saddles + num_pixels_y.re * num_pixels_y.im) * factor);
+				int min_mag_saddles = std::round(lo_sad * factor);
+				int max_mag_saddles = std::round(hi_sad * factor);
 
 				min_mag = std::min({min_mag, min_mag_minima, min_mag_saddles});
 				max_mag = std::max({max_mag, max_mag_minima, max_mag_saddles});
+
+				int min_log_mag_minima = std::round(std::log10(lo_min) * factor);
+				int max_log_mag_minima = std::round(std::log10(hi_min) * factor);
+				int min_log_mag_saddles = std::round(std::log10(lo_sad) * factor);
+				int max_log_mag_saddles = std::round(std::log10(hi_sad) * factor);
+
+				min_log_mag = std::min({min_log_mag, min_log_mag_minima, min_log_mag_saddles});
+				max_log_mag = std::max({max_log_mag, max_log_mag_minima, max_log_mag_saddles});
 			}
 
 			histogram_length = max_mag - min_mag + 1;
 
-			cudaMallocManaged(&histogram, histogram_length * sizeof(int));
-			if (cuda_error("cudaMallocManaged(*histogram)", false, __FILE__, __LINE__)) return false;
+			cudaMalloc(&histogram, histogram_length * sizeof(int));
+			if (cuda_error("cudaMalloc(*histogram)", false, __FILE__, __LINE__)) return false;
 			if (write_parities)
 			{
-				cudaMallocManaged(&histogram_minima, histogram_length * sizeof(int));
-				if (cuda_error("cudaMallocManaged(*histogram_minima)", false, __FILE__, __LINE__)) return false;
-				cudaMallocManaged(&histogram_saddles, histogram_length * sizeof(int));
-				if (cuda_error("cudaMallocManaged(*histogram_saddles)", false, __FILE__, __LINE__)) return false;
+				cudaMalloc(&histogram_minima, histogram_length * sizeof(int));
+				if (cuda_error("cudaMalloc(*histogram_minima)", false, __FILE__, __LINE__)) return false;
+				cudaMalloc(&histogram_saddles, histogram_length * sizeof(int));
+				if (cuda_error("cudaMalloc(*histogram_saddles)", false, __FILE__, __LINE__)) return false;
 			}
 
 
@@ -535,46 +803,31 @@ private:
 
 			threads = get_threads(histogram_kernel<T>, num_pixels_y.re, num_pixels_y.im);
 			blocks = get_blocks(threads, num_pixels_y.re, num_pixels_y.im);
-			histogram_kernel<T> <<<blocks, threads>>> (pixels, num_pixels_y, min_mag, histogram, factor);
+			histogram_kernel<T> <<<blocks, threads>>> (d_pixels, num_pixels_y, min_mag, histogram, factor);
 			if (cuda_error("histogram_kernel", true, __FILE__, __LINE__)) return false;
 			if (write_parities)
 			{
-				histogram_kernel<T> <<<blocks, threads>>> (pixels_minima, num_pixels_y, min_mag, histogram_minima, factor);
+				histogram_kernel<T> <<<blocks, threads>>> (d_pixels_minima, num_pixels_y, min_mag, histogram_minima, factor);
 				if (cuda_error("histogram_kernel", true, __FILE__, __LINE__)) return false;
-				histogram_kernel<T> <<<blocks, threads>>> (pixels_saddles, num_pixels_y, min_mag, histogram_saddles, factor);
+				histogram_kernel<T> <<<blocks, threads>>> (d_pixels_saddles, num_pixels_y, min_mag, histogram_saddles, factor);
 				if (cuda_error("histogram_kernel", true, __FILE__, __LINE__)) return false;
 			}
 			
 
 			/******************************************************************************
-			histogram of log_10(mu)
+			histogram of log_10(mu) (ranges computed above)
 			******************************************************************************/
-
-			min_log_mag = std::round(std::log10(*thrust::min_element(thrust::device, pixels, pixels + num_pixels_y.re * num_pixels_y.im)) * factor);
-			max_log_mag = std::round(std::log10(*thrust::max_element(thrust::device, pixels, pixels + num_pixels_y.re * num_pixels_y.im)) * factor);
-
-			if (write_parities)
-			{
-				int min_log_mag_minima = std::round(std::log10(*thrust::min_element(thrust::device, pixels_minima, pixels_minima + num_pixels_y.re * num_pixels_y.im)) * factor);
-				int max_log_mag_minima = std::round(std::log10(*thrust::max_element(thrust::device, pixels_minima, pixels_minima + num_pixels_y.re * num_pixels_y.im)) * factor);
-
-				int min_log_mag_saddles = std::round(std::log10(*thrust::min_element(thrust::device, pixels_saddles, pixels_saddles + num_pixels_y.re * num_pixels_y.im)) * factor);
-				int max_log_mag_saddles = std::round(std::log10(*thrust::max_element(thrust::device, pixels_saddles, pixels_saddles + num_pixels_y.re * num_pixels_y.im)) * factor);
-
-				min_log_mag = std::min({min_log_mag, min_log_mag_minima, min_log_mag_saddles});
-				max_log_mag = std::max({max_log_mag, max_log_mag_minima, max_log_mag_saddles});
-			}
 
 			log_histogram_length = max_log_mag - min_log_mag + 1;
 
-			cudaMallocManaged(&log_histogram, log_histogram_length * sizeof(int));
-			if (cuda_error("cudaMallocManaged(*log_histogram)", false, __FILE__, __LINE__)) return false;
+			cudaMalloc(&log_histogram, log_histogram_length * sizeof(int));
+			if (cuda_error("cudaMalloc(*log_histogram)", false, __FILE__, __LINE__)) return false;
 			if (write_parities)
 			{
-				cudaMallocManaged(&log_histogram_minima, log_histogram_length * sizeof(int));
-				if (cuda_error("cudaMallocManaged(*log_histogram_minima)", false, __FILE__, __LINE__)) return false;
-				cudaMallocManaged(&log_histogram_saddles, log_histogram_length * sizeof(int));
-				if (cuda_error("cudaMallocManaged(*log_histogram_saddles)", false, __FILE__, __LINE__)) return false;
+				cudaMalloc(&log_histogram_minima, log_histogram_length * sizeof(int));
+				if (cuda_error("cudaMalloc(*log_histogram_minima)", false, __FILE__, __LINE__)) return false;
+				cudaMalloc(&log_histogram_saddles, log_histogram_length * sizeof(int));
+				if (cuda_error("cudaMalloc(*log_histogram_saddles)", false, __FILE__, __LINE__)) return false;
 			}
 
 
@@ -588,13 +841,13 @@ private:
 
 			threads = get_threads(log_histogram_kernel<T>, num_pixels_y.re, num_pixels_y.im);
 			blocks = get_blocks(threads, num_pixels_y.re, num_pixels_y.im);
-			log_histogram_kernel<T> <<<blocks, threads>>> (pixels, num_pixels_y, min_log_mag, log_histogram, factor);
+			log_histogram_kernel<T> <<<blocks, threads>>> (d_pixels, num_pixels_y, min_log_mag, log_histogram, factor);
 			if (cuda_error("log_histogram_kernel", true, __FILE__, __LINE__)) return false;
 			if (write_parities)
 			{
-				log_histogram_kernel<T> <<<blocks, threads>>> (pixels_minima, num_pixels_y, min_log_mag, log_histogram_minima, factor);
+				log_histogram_kernel<T> <<<blocks, threads>>> (d_pixels_minima, num_pixels_y, min_log_mag, log_histogram_minima, factor);
 				if (cuda_error("log_histogram_kernel", true, __FILE__, __LINE__)) return false;
-				log_histogram_kernel<T> <<<blocks, threads>>> (pixels_saddles, num_pixels_y, min_log_mag, log_histogram_saddles, factor);
+				log_histogram_kernel<T> <<<blocks, threads>>> (d_pixels_saddles, num_pixels_y, min_log_mag, log_histogram_saddles, factor);
 				if (cuda_error("log_histogram_kernel", true, __FILE__, __LINE__)) return false;
 			}
 
@@ -660,8 +913,27 @@ private:
 		{
 			print_verbose("Writing magnification histograms...\n", verbose, 2);
 
+			//the histograms are in device memory: each one is copied into h_hist before it is written.
+			//a failed allocation returns false: it must not throw through the C interface (save)
+			std::vector<int> h_hist;
+			auto copy_histogram = [&](const int* d_hist, int n)
+			{
+				if (d_hist == nullptr || n < 1) return false;
+				try
+				{
+					h_hist.resize(n);
+				}
+				catch (const std::bad_alloc&)
+				{
+					std::cerr << "Error. Unable to allocate a host copy of a histogram.\n";
+					return false;
+				}
+				cudaMemcpy(h_hist.data(), d_hist, n * sizeof(int), cudaMemcpyDeviceToHost);
+				return !cuda_error("cudaMemcpy(*h_hist)", false, __FILE__, __LINE__);
+			};
+
 			fname = outfile_prefix + "ipm_mags_numpixels.txt";
-			if (!write_histogram<int>(histogram, histogram_length, min_mag, fname))
+			if (!copy_histogram(histogram, histogram_length) || !write_histogram<int>(h_hist.data(), histogram_length, min_mag, fname))
 			{
 				std::cerr << "Error. Unable to write magnification histogram to file " << fname << "\n";
 				return false;
@@ -669,7 +941,7 @@ private:
 			print_verbose("Done writing magnification histogram to file " << fname << "\n", verbose, 1);
 
 			fname = outfile_prefix + "ipm_log_mags_numpixels.txt";
-			if (!write_histogram<int>(log_histogram, log_histogram_length, min_log_mag, fname))
+			if (!copy_histogram(log_histogram, log_histogram_length) || !write_histogram<int>(h_hist.data(), log_histogram_length, min_log_mag, fname))
 			{
 				std::cerr << "Error. Unable to write magnification histogram to file " << fname << "\n";
 				return false;
@@ -679,7 +951,7 @@ private:
 			if (write_parities)
 			{
 				fname = outfile_prefix + "ipm_mags_numpixels_minima.txt";
-				if (!write_histogram<int>(histogram_minima, histogram_length, min_mag, fname))
+				if (!copy_histogram(histogram_minima, histogram_length) || !write_histogram<int>(h_hist.data(), histogram_length, min_mag, fname))
 				{
 					std::cerr << "Error. Unable to write magnification histogram to file " << fname << "\n";
 					return false;
@@ -687,7 +959,7 @@ private:
 				print_verbose("Done writing magnification histogram to file " << fname << "\n", verbose, 1);
 
 				fname = outfile_prefix + "ipm_log_mags_numpixels_minima.txt";
-				if (!write_histogram<int>(log_histogram_minima, log_histogram_length, min_log_mag, fname))
+				if (!copy_histogram(log_histogram_minima, log_histogram_length) || !write_histogram<int>(h_hist.data(), log_histogram_length, min_log_mag, fname))
 				{
 					std::cerr << "Error. Unable to write magnification histogram to file " << fname << "\n";
 					return false;
@@ -695,7 +967,7 @@ private:
 				print_verbose("Done writing magnification histogram to file " << fname << "\n", verbose, 1);
 
 				fname = outfile_prefix + "ipm_mags_numpixels_saddles.txt";
-				if (!write_histogram<int>(histogram_saddles, histogram_length, min_mag, fname))
+				if (!copy_histogram(histogram_saddles, histogram_length) || !write_histogram<int>(h_hist.data(), histogram_length, min_mag, fname))
 				{
 					std::cerr << "Error. Unable to write magnification histogram to file " << fname << "\n";
 					return false;
@@ -703,7 +975,7 @@ private:
 				print_verbose("Done writing magnification histogram to file " << fname << "\n", verbose, 1);
 
 				fname = outfile_prefix + "ipm_log_mags_numpixels_saddles.txt";
-				if (!write_histogram<int>(log_histogram_saddles, log_histogram_length, min_log_mag, fname))
+				if (!copy_histogram(log_histogram_saddles, log_histogram_length) || !write_histogram<int>(h_hist.data(), log_histogram_length, min_log_mag, fname))
 				{
 					std::cerr << "Error. Unable to write magnification histogram to file " << fname << "\n";
 					return false;
@@ -714,14 +986,16 @@ private:
 
 
 		/******************************************************************************
-		write magnifications for minima, saddle, and combined maps
+		write magnifications for minima, saddle, and combined maps, streamed from
+		device memory through one writer, so that they share its pinned buffers
 		******************************************************************************/
 		if (write_maps)
 		{
 			print_verbose("Writing magnifications...\n", verbose, 2);
+			DeviceArrayWriter<T> writer;
 
 			fname = outfile_prefix + "ipm_magnifications" + outfile_type;
-			if (!write_array<T>(pixels, num_pixels_y.im, num_pixels_y.re, fname))
+			if (!writer.write(d_pixels, num_pixels_y.im, num_pixels_y.re, fname))
 			{
 				std::cerr << "Error. Unable to write magnifications to file " << fname << "\n";
 				return false;
@@ -730,7 +1004,7 @@ private:
 			if (write_parities)
 			{
 				fname = outfile_prefix + "ipm_magnifications_minima" + outfile_type;
-				if (!write_array<T>(pixels_minima, num_pixels_y.im, num_pixels_y.re, fname))
+				if (!writer.write(d_pixels_minima, num_pixels_y.im, num_pixels_y.re, fname))
 				{
 					std::cerr << "Error. Unable to write magnifications to file " << fname << "\n";
 					return false;
@@ -738,16 +1012,48 @@ private:
 				print_verbose("Done writing magnifications to file " << fname << "\n", verbose, 1);
 
 				fname = outfile_prefix + "ipm_magnifications_saddles" + outfile_type;
-				if (!write_array<T>(pixels_saddles, num_pixels_y.im, num_pixels_y.re, fname))
+				if (!writer.write(d_pixels_saddles, num_pixels_y.im, num_pixels_y.re, fname))
 				{
 					std::cerr << "Error. Unable to write magnifications to file " << fname << "\n";
 					return false;
 				}
 				print_verbose("Done writing magnifications to file " << fname << "\n", verbose, 1);
 			}
+			if (!writer.release())
+			{
+				std::cerr << "Error. CUDA error while releasing the buffers used to write the magnifications.\n";
+				return false;
+			}
 		}
 
 		return true;
+	}
+
+	bool copy_map(const T* d_map, T* dst, const char* name) const
+	{
+		if (d_map == nullptr || dst == nullptr) return false;
+		cudaMemcpy(dst, d_map, (1ULL * num_pixels_y.re * num_pixels_y.im) * sizeof(T), cudaMemcpyDeviceToHost);
+		return !cuda_error(name, false, __FILE__, __LINE__);
+	}
+
+	T* host_copy(const T* d_map, T*& h_map, const char* name)
+	{
+		if (h_map == nullptr && d_map != nullptr)
+		{
+			T* copy = new (std::nothrow) T[1ULL * num_pixels_y.re * num_pixels_y.im];
+			if (copy == nullptr)
+			{
+				std::cerr << "Error. Unable to allocate a host copy of a magnification map.\n";
+				return nullptr;
+			}
+			if (!copy_map(d_map, copy, name))
+			{
+				delete[] copy;
+				return nullptr;
+			}
+			h_map = copy;
+		}
+		return h_map;
 	}
 
 
@@ -774,9 +1080,19 @@ public:
 	******************************************************************************/
 	IPM(const IPM& other) : Microlensing<T>(other)
 	{
-		pixels = nullptr;
-		pixels_minima = nullptr;
-		pixels_saddles = nullptr;
+		d_pixels = nullptr;
+		d_pixels_minima = nullptr;
+		d_pixels_saddles = nullptr;
+		h_pixels = nullptr;
+		h_pixels_minima = nullptr;
+		h_pixels_saddles = nullptr;
+		d_steps = nullptr;
+		d_clamp_count = nullptr;
+		d_clamp_total = nullptr;
+		leaves = nullptr;
+		leaf_coef_re = nullptr;
+		leaf_coef_im = nullptr;
+		direct_stars = nullptr;
 
 		histogram = nullptr;
 		histogram_minima = nullptr;
@@ -796,9 +1112,19 @@ public:
 
 		Microlensing<T>::operator=(other);
 
-		pixels = nullptr;
-		pixels_minima = nullptr;
-		pixels_saddles = nullptr;
+		d_pixels = nullptr;
+		d_pixels_minima = nullptr;
+		d_pixels_saddles = nullptr;
+		h_pixels = nullptr;
+		h_pixels_minima = nullptr;
+		h_pixels_saddles = nullptr;
+		d_steps = nullptr;
+		d_clamp_count = nullptr;
+		d_clamp_total = nullptr;
+		leaves = nullptr;
+		leaf_coef_re = nullptr;
+		leaf_coef_im = nullptr;
+		direct_stars = nullptr;
 
 		histogram = nullptr;
 		histogram_minima = nullptr;
@@ -820,6 +1146,7 @@ public:
 		if (!allocate_initialize_memory(verbose)) return false;
 		if (!Microlensing<T>::populate_star_array(verbose)) return false;
 		if (!Microlensing<T>::create_tree(verbose)) return false;
+		if (!build_compact_tree(verbose)) return false;
 		if (!shoot_cells(verbose)) return false;
 		if (!create_histograms(verbose)) return false;
 
@@ -833,9 +1160,23 @@ public:
 		return true;
 	}
 
-	T* get_pixels()				{return pixels;}
-	T* get_pixels_minima()		{return pixels_minima;}
-	T* get_pixels_saddles()		{return pixels_saddles;}
+	/******************************************************************************
+	copy a map (num_pixels_y.re * num_pixels_y.im values) from the device into
+	dst. false if the map does not exist (before run(), or the parity maps without
+	write_parities) or the copy fails
+	******************************************************************************/
+	bool copy_pixels(T* dst) const			{return copy_map(d_pixels, dst, "cudaMemcpy(*d_pixels)");}
+	bool copy_pixels_minima(T* dst) const	{return copy_map(d_pixels_minima, dst, "cudaMemcpy(*d_pixels_minima)");}
+	bool copy_pixels_saddles(T* dst) const	{return copy_map(d_pixels_saddles, dst, "cudaMemcpy(*d_pixels_saddles)");}
+
+	/******************************************************************************
+	a host copy of a map, made on the first call after run() and valid until the
+	next run() or the object's destruction. nullptr where copy_pixels*() would
+	return false, or if the host copy cannot be allocated
+	******************************************************************************/
+	T* get_pixels()				{return host_copy(d_pixels, h_pixels, "cudaMemcpy(*d_pixels)");}
+	T* get_pixels_minima()		{return host_copy(d_pixels_minima, h_pixels_minima, "cudaMemcpy(*d_pixels_minima)");}
+	T* get_pixels_saddles()		{return host_copy(d_pixels_saddles, h_pixels_saddles, "cudaMemcpy(*d_pixels_saddles)");}
 	double get_t_shoot_cells()	{return t_shoot_cells;}
 
 };
