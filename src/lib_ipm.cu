@@ -81,6 +81,9 @@ extern "C"
     LIB_EXPORT dtype* get_pixels(IPM<dtype> *self)                         {return self->get_pixels();}
     LIB_EXPORT dtype* get_pixels_minima(IPM<dtype> *self)                  {return self->get_pixels_minima();}
     LIB_EXPORT dtype* get_pixels_saddles(IPM<dtype> *self)                 {return self->get_pixels_saddles();}
+    LIB_EXPORT bool copy_pixels(IPM<dtype> *self, dtype* dst)              {return self->copy_pixels(dst);}
+    LIB_EXPORT bool copy_pixels_minima(IPM<dtype> *self, dtype* dst)       {return self->copy_pixels_minima(dst);}
+    LIB_EXPORT bool copy_pixels_saddles(IPM<dtype> *self, dtype* dst)      {return self->copy_pixels_saddles(dst);}
     LIB_EXPORT double get_t_shoot_cells(IPM<dtype> *self)                  {return self->get_t_shoot_cells();}
 
     LIB_EXPORT bool run(IPM<dtype> *self, int verbose)                     {return self->run(verbose);}

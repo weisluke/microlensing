@@ -133,6 +133,14 @@ lib.get_pixels_minima.argtypes = [ctypes.c_void_p]
 lib.get_pixels_minima.restype = ctypes.POINTER(ctypes.c_double)
 lib.get_pixels_saddles.argtypes = [ctypes.c_void_p]
 lib.get_pixels_saddles.restype = ctypes.POINTER(ctypes.c_double)
+# the copy exports are missing from libraries built before them (such as the Windows DLLs); ipm.py then uses get_pixels
+if hasattr(lib, "copy_pixels"):
+    lib.copy_pixels.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_double)]
+    lib.copy_pixels.restype = ctypes.c_bool
+    lib.copy_pixels_minima.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_double)]
+    lib.copy_pixels_minima.restype = ctypes.c_bool
+    lib.copy_pixels_saddles.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_double)]
+    lib.copy_pixels_saddles.restype = ctypes.c_bool
 lib.get_t_shoot_cells.argtypes = [ctypes.c_void_p]
 lib.get_t_shoot_cells.restype = ctypes.c_double
 

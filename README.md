@@ -9,7 +9,7 @@ This repository contains source code for
 on GPUs (1-3) and CPUs (4).
 
 ## Methods
-We utilize Inverse Polygon Mapping (IPM, Mediavilla et al. [2006](https://ui.adsabs.harvard.edu/abs/2006ApJ...653..942M/abstract), [2011](https://ui.adsabs.harvard.edu/abs/2011ApJ...741...42M/abstract)), combined with the Fast Multipole Method (FMM, Greengard and Rokhlin [1987](https://ui.adsabs.harvard.edu/abs/1987JCoPh..73..325G/abstract)) as suggested and used by Jiménez-Vicente and Mediavilla ([2022](https://ui.adsabs.harvard.edu/abs/2022ApJ...941...80J/abstract)) for CPUs, in order to generate magnification maps. Calculations for allocating the areas of the IPM cells among the pixels to which they map use the Sutherland-Hodgman ([1974](https://doi.org/10.1145/360767.360802)) algorithm.
+We utilize Inverse Polygon Mapping (IPM, Mediavilla et al. [2006](https://ui.adsabs.harvard.edu/abs/2006ApJ...653..942M/abstract), [2011](https://ui.adsabs.harvard.edu/abs/2011ApJ...741...42M/abstract)), combined with the Fast Multipole Method (FMM, Greengard and Rokhlin [1987](https://ui.adsabs.harvard.edu/abs/1987JCoPh..73..325G/abstract)) as suggested and used by Jiménez-Vicente and Mediavilla ([2022](https://ui.adsabs.harvard.edu/abs/2022ApJ...941...80J/abstract)) for CPUs, in order to generate magnification maps. The area of each IPM cell is allocated among the pixels it maps to with a closed-form per-pixel coverage integral (Green's theorem applied to the triangle edges, evaluated per pixel row); triangles whose clamped bounding box covers more than 64 pixels are instead deposited along their perimeter: for each edge and pixel row, the partial coverage on the edge's span is added to the map and one step value at the span's first column to a map-sized step buffer, and a row-wise prefix sum of that buffer is added to the map after the kernel. The cost of such a triangle then scales with its perimeter rather than its area, and the result is exact up to rounding (parity maps are supported). Earlier versions clipped the triangles with the Sutherland-Hodgman ([1974](https://doi.org/10.1145/360767.360802)) algorithm.
 
 We use Witt's ([1990](https://ui.adsabs.harvard.edu/abs/1990A&A...236..311W)) method to locate the microlensing critical curves and caustics, while taking advantage of the FMM again to decrease computation time for terms involving derivatives of the microlensing potential. In order to locate the roots of the parametric critical curve equation, we employ the [Aberth](https://doi.org/10.2307/2005621)-[Ehrlich](https://doi.org/10.1145/363067.363115) method, a cubically convergent algorithm that allows for simultaneous approximations of the roots of a polynomial. 
 
@@ -26,9 +26,11 @@ I would love to be considered for involvement in any projects which make use of 
 
 
 ## Dependencies
-The code is written to be independent of anything besides the C++ standard libraries and the Thrust libraries that come with CUDA. We implement IPM, the FMM, the Sutherland-Hodgman algorithm, the Aberth-Ehrlich method, Sunday's algorithm, and a similar algorithm to that of Lewis et al. [1993](https://ui.adsabs.harvard.edu/abs/1993MNRAS.261..647L/abstract) ourselves.
+The code is written to be independent of anything besides the C++ standard libraries and the Thrust libraries that come with CUDA. We implement IPM, the FMM, the pixel coverage integral, the Aberth-Ehrlich method, Sunday's algorithm, and a similar algorithm to that of Lewis et al. [1993](https://ui.adsabs.harvard.edu/abs/1993MNRAS.261..647L/abstract) ourselves.
 
 The bulk of the code is written using NVIDIA's CUDA, and you will need a CUDA capable device to run it (and a CUDA installation to compile it, if necessary. We require a C++20 compliant compiler in that case).
+
+The perimeter deposit needs one extra map-sized buffer in device memory (with parity maps, the otherwise unused total-map buffer holds the steps of one parity, so it is still one extra buffer). If that buffer does not fit in the free device memory, the code falls back to the direct per-pixel deposit, which gives the same map up to rounding, and reports this at verbosity 2.
 
 ## Repository layout
 The `include` directory contains the bulk of the code, which is written mostly as templated objects and functions. The `src` directory contains files for creating executables and libraries. The `bin` directory holds [compilation](#compiling) output. The `microlensing` directory contains [python](#python) code for ease of use, while the `examples` directory contains example python notebooks outlining usage.
@@ -49,13 +51,15 @@ or on Windows
 ```
 compile.bat
 ```
-to run the compilation file. This should create 5 executables and 5 libraries in the `bin` directory. 
+to run the compilation file. This should create 5 executables and 5 libraries in the `bin` directory.
+
+The IPM shooting kernel uses cooperative-groups warp partitioning, which needs a device of compute capability 7.0 or newer (the scripts target 8.0 on Linux and 7.5 on Windows), and sizes its launch grid with the CUDA occupancy API at run time. 
 
 I'll note that this repository contains the libraries precompiled and placed in the `./microlensing/lib/` directory already. These libraries may or may not work on your hardware, as they were compiled for a particular cluster (SCIAMA) for Linux and on a home desktop for Windows, but you can try running the example [python](#python) notebooks first to see if they do. They *should* work for Linux distributions that have GLIBC >= 2.34 and GLIBCXX >= 3.4.29 and CUDA compute capabilities >=8.0, and for Windows 11 and CUDA compute capabilities >=7.5, but no promises. If there are errors, you will need to compile everything yourself (though I'm happy to do my best to help with that if need be).
 
 ## python
 
-In addition to command line programs, we also provide wrappers for our code that allow them to be used with python once the relevant libraries are [compiled](#compiling). This eases the need to save output from the executables to disk and then read them from disk; we directly copy from managed memory to a numpy array once magnification maps and other objects are created. 
+In addition to command line programs, we also provide wrappers for our code that allow them to be used with python once the relevant libraries are [compiled](#compiling). This eases the need to save output from the executables to disk and then read them from disk: for IPM the magnification maps stay in device memory and each one is copied directly into a numpy array once it is created (the IPM executable streams them to files through two small pinned host buffers), while CCF, NCC and MIF, and IPM with the Windows libraries included here, copy from managed memory to a numpy array. 
 
 If you just want the python capabilities (as I suspect is the case for most people currently) and do not wish to use the executables or contribute to the code, then instead of cloning this repository you can `pip install microlensing` (PyPI page  located [here](https://pypi.org/project/microlensing/)). The python package includes precompiled libraries as mentioned [above](#compiling), which may or may not work for you. We hope to expand to cover more architectures in the future. If the included libraries do not work, you will have to clone this repository, compile them yourself, and do a local `pip install` instead.
 
