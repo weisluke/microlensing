@@ -44,15 +44,13 @@ class UniformDisks():
         :param radius: minimum radius of the 2D profiles in pixels
         :param step: step size for the radius in pixels
         '''
-        # use np.int8 to minimize memory, since it is just 0s and 1s
-        kernel = np.zeros((max_radius - min_radius + 1,
-                           2 * max_radius + 1, 2 * max_radius + 1),
-                          dtype=np.int8)
-
         self._radii, y, x = np.ogrid[min_radius: max_radius + 1: step,
                                      -max_radius: max_radius + 1,
                                      -max_radius: max_radius + 1]
         mask = x**2 + y**2 <= self._radii**2
+
+        # use np.int8 to minimize memory, since it is just 0s and 1s
+        kernel = np.zeros(mask.shape, dtype=np.int8)
         kernel[mask] = 1
 
         self.profiles = kernel
