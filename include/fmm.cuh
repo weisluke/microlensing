@@ -91,7 +91,7 @@ namespace fmm
     \param coeff -- pointer to where to store multipole coefficient
     ******************************************************************************/
     template <typename T>
-    __device__ void calculate_M2M_coeff(TreeNode<T>* node, int power, int* binomcoeffs, Complex<T>* coeff)
+    __device__ void calculate_M2M_coeff(TreeNode<T>* node, int power, long long* binomcoeffs, Complex<T>* coeff)
     {
         Complex<T> result;
 
@@ -132,7 +132,7 @@ namespace fmm
     \param binomcoeffs -- pointer to array of binomial coefficients
     ******************************************************************************/
     template <typename T>
-    __global__ void calculate_M2M_coeffs_kernel(TreeNode<T>* nodes, int numnodes, int power, int* binomcoeffs)
+    __global__ void calculate_M2M_coeffs_kernel(TreeNode<T>* nodes, int numnodes, int power, long long* binomcoeffs)
     {
         /******************************************************************************
         array to hold multipole coefficients
@@ -176,7 +176,7 @@ namespace fmm
     \param coeff -- pointer to where to store local coefficient
     ******************************************************************************/
     template <typename T>
-    __device__ void calculate_L2L_coeff(TreeNode<T>* node, int power, int maxpower, int* binomcoeffs, Complex<T>* coeff)
+    __device__ void calculate_L2L_coeff(TreeNode<T>* node, int power, int maxpower, long long* binomcoeffs, Complex<T>* coeff)
     {
         Complex<T> result;
 
@@ -207,7 +207,7 @@ namespace fmm
     \param binomcoeffs -- pointer to array of binomial coefficients
     ******************************************************************************/
     template <typename T>
-    __global__ void calculate_L2L_coeffs_kernel(TreeNode<T>* nodes, int numnodes, int power, int* binomcoeffs)
+    __global__ void calculate_L2L_coeffs_kernel(TreeNode<T>* nodes, int numnodes, int power, long long* binomcoeffs)
     {
         /******************************************************************************
         each thread is a node in the y thread direction
@@ -238,7 +238,7 @@ namespace fmm
     \param coeff -- pointer to where to store local coefficient
     ******************************************************************************/
     template <typename T>
-    __device__ void calculate_M2L_coeff(TreeNode<T>* node_from, TreeNode<T>* node_to, int power, int maxpower, int* binomcoeffs, Complex<T>* coeff)
+    __device__ void calculate_M2L_coeff(TreeNode<T>* node_from, TreeNode<T>* node_to, int power, int maxpower, long long* binomcoeffs, Complex<T>* coeff)
     {
         Complex<T> result;
 
@@ -290,7 +290,7 @@ namespace fmm
     \param binomcoeffs -- pointer to array of binomial coefficients
     ******************************************************************************/
     template <typename T>
-    __global__ void calculate_M2L_coeffs_kernel(TreeNode<T>* nodes, int numnodes, int power, int* binomcoeffs)
+    __global__ void calculate_M2L_coeffs_kernel(TreeNode<T>* nodes, int numnodes, int power, long long* binomcoeffs)
     {
         /******************************************************************************
         array to hold local coefficients
@@ -334,7 +334,7 @@ namespace fmm
     \param coeff -- pointer to where to store local coefficient
     ******************************************************************************/
     template <typename T>
-    __device__ void calculate_P2L_coeff(TreeNode<T>* node_from, TreeNode<T>* node_to, int power, int maxpower, int* binomcoeffs, star<T>* stars, Complex<T>* coeff)
+    __device__ void calculate_P2L_coeff(TreeNode<T>* node_from, TreeNode<T>* node_to, int power, int maxpower, long long* binomcoeffs, star<T>* stars, Complex<T>* coeff)
     {
         Complex<T> result;
 
@@ -370,7 +370,7 @@ namespace fmm
     \param binomcoeffs -- pointer to array of binomial coefficients
     ******************************************************************************/
     template <typename T>
-    __global__ void calculate_P2L_coeffs_kernel(TreeNode<T>* nodes, int numnodes, int power, int* binomcoeffs, star<T>* stars)
+    __global__ void calculate_P2L_coeffs_kernel(TreeNode<T>* nodes, int numnodes, int power, long long* binomcoeffs, star<T>* stars)
     {
         /******************************************************************************
         array to hold local coefficients

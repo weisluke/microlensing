@@ -3,12 +3,13 @@
 
 /******************************************************************************
 calculate the binomial coefficients up to a maximum order
+stored as long long: C(2p-1, p-1) with p up to MAX_EXPANSION_ORDER = 31 exceeds int32
 assumes this function will be called once, otherwise the recursion is redundant
 
 \param binom_coeffs -- pointer to array to hold coefficients
 \param n -- maximum order to find the coefficients for
 ******************************************************************************/
-void calculate_binomial_coeffs(int* binom_coeffs, int n)
+void calculate_binomial_coeffs(long long* binom_coeffs, int n)
 {
 	/******************************************************************************
 	recursion limit
@@ -50,7 +51,7 @@ return the value of the binomial coefficient (n, k)
 \param n -- maximum order for the coefficients
 \param k -- order to find the coefficient of
 ******************************************************************************/
-__host__ __device__ int get_binomial_coeff(int* binom_coeffs, int n, int k)
+__host__ __device__ long long get_binomial_coeff(long long* binom_coeffs, int n, int k)
 {
 	/******************************************************************************
 	binomial coefficient only defined if n >= k

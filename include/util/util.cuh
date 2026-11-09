@@ -138,16 +138,38 @@ __host__ __device__ void print_progress(int verbose, unsigned long long int icur
 }
 
 /******************************************************************************
+code of the last error reported by cuda_error on this thread, 0 if none
+******************************************************************************/
+inline thread_local int last_cuda_error_code = 0;
+
+/******************************************************************************
+return the code of the last error cuda_error reported on this thread (a
+cudaError_t as an int, 0 if none since the last call) and reset it to 0
+
+\return int -- the stored error code
+******************************************************************************/
+int take_last_cuda_error()
+{
+	int code = last_cuda_error_code;
+	last_cuda_error_code = 0;
+	return code;
+}
+
+/******************************************************************************
 CUDA error checking
 
 \param name -- to print in error msg
-\param sync -- boolean of whether device needs synchronized or not
+\param sync -- boolean of whether to synchronize or not
 \param file -- the file being run
 \param line -- line number of the source code where the error is given
+\param stream -- stream to synchronize if sync is true. the default, 0,
+				synchronizes the whole device
+
+every error reported is also stored for take_last_cuda_error
 
 \return bool -- true for error, false for no error
 ******************************************************************************/
-bool cuda_error(const char* name, bool sync, const char* file, const int line)
+bool cuda_error(const char* name, bool sync, const char* file, const int line, cudaStream_t stream = 0)
 {
 	cudaError_t err = cudaGetLastError();
 
@@ -157,6 +179,7 @@ bool cuda_error(const char* name, bool sync, const char* file, const int line)
 	******************************************************************************/
 	if (err != cudaSuccess)
 	{
+		last_cuda_error_code = static_cast<int>(err);
 		const char* errMsg = cudaGetErrorString(err);
 		std::cerr << "CUDA error check for " << name << " failed at " << file << ":" << line << "\n";
 		std::cerr << "Error code: " << err << " (" << errMsg << ")\n";
@@ -164,23 +187,45 @@ bool cuda_error(const char* name, bool sync, const char* file, const int line)
 	}
 
 	/******************************************************************************
-	if a device synchronization is also to be done
+	if a synchronization is also to be done
 	******************************************************************************/
 	if (sync)
 	{
 		/******************************************************************************
 		perform the same error checking as initially
 		******************************************************************************/
-		err = cudaDeviceSynchronize();
+		err = (stream == 0) ? cudaDeviceSynchronize() : cudaStreamSynchronize(stream);
 		if (err != cudaSuccess)
 		{
+			last_cuda_error_code = static_cast<int>(err);
 			const char* errMsg = cudaGetErrorString(err);
-			std::cerr << "CUDA error check for cudaDeviceSynchronize failed at " << file << ":" << line << "\n";
+			std::cerr << "CUDA error check for " << ((stream == 0) ? "cudaDeviceSynchronize" : "cudaStreamSynchronize") << " failed at " << file << ":" << line << "\n";
 			std::cerr << "Error code: " << err << " (" << errMsg << ")\n";
 			return true;
 		}
 	}
 	return false;
+}
+
+/******************************************************************************
+properties of the current device, cached per thread because
+cudaGetDeviceProperties costs ~0.5-1 ms and the tree/FMM loops called it
+hundreds of times. refreshed when the thread's current device changes
+
+\return const cudaDeviceProp& -- reference to this thread's cached properties
+******************************************************************************/
+const cudaDeviceProp& cached_device_prop()
+{
+	static thread_local cudaDeviceProp prop;
+	static thread_local int cached_device = -1;
+	int device;
+	cudaGetDevice(&device);
+	if (device != cached_device)
+	{
+		cudaGetDeviceProperties(&prop, device);
+		cached_device = device;
+	}
+	return prop;
 }
 
 /******************************************************************************
@@ -269,10 +314,7 @@ threads
 ******************************************************************************/
 dim3 get_blocks(dim3 threads, int x = 1, int y = 1, int z = 1)
 {
-	int device;
-	cudaGetDevice(&device);
-	cudaDeviceProp prop;
-	cudaGetDeviceProperties(&prop, device);
+	const cudaDeviceProp& prop = cached_device_prop();
 
 	dim3 blocks(
 		(x - 1) / threads.x + 1,
