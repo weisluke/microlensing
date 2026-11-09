@@ -77,7 +77,7 @@ __global__ void histogram_kernel(T* pixels, Complex<int> npixels, int hist_min, 
 	{
 		for (int i = x_index; i < npixels.re; i += x_stride)
 		{
-			int index = std::round(1.0 * pixels[j * npixels.re + i] * factor - hist_min);
+			int index = std::round(1.0 * pixels[1LL * j * npixels.re + i] * factor - hist_min);
 			atomicAdd(&histogram[index], 1);
 		}
 	}
@@ -106,7 +106,7 @@ __global__ void log_histogram_kernel(T* pixels, Complex<int> npixels, int hist_m
 	{
 		for (int i = x_index; i < npixels.re; i += x_stride)
 		{
-			int index = std::round(std::log10(pixels[j * npixels.re + i]) * factor - hist_min);
+			int index = std::round(std::log10(pixels[1LL * j * npixels.re + i]) * factor - hist_min);
 			atomicAdd(&histogram[index], 1);
 		}
 	}
@@ -252,7 +252,7 @@ bool write_array(T* vals, int nrows, int ncols, const std::string& fname)
 	}
 	outfile.write((char*)(&nrows), sizeof(int));
 	outfile.write((char*)(&ncols), sizeof(int));
-	outfile.write((char*)vals, nrows * ncols * sizeof(T));
+	outfile.write((char*)vals, static_cast<size_t>(nrows) * ncols * sizeof(T));
 	outfile.close();
 
 	return true;
